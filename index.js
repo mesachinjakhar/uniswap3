@@ -156,7 +156,7 @@ const handledBlocks = {};
 
 async function getPoolEventsInRange(startBlock, endBlock) {
     let currentBlock = startBlock;
-    const step = 5000; // adjust this step to fit under the 10000 results limit
+    const step = 10000; // adjust this step to fit under the 10000 results limit
     let events = [];
 
     while (currentBlock < endBlock) {
