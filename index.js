@@ -181,113 +181,79 @@ async function main() {
             }
 
             state.tokens[event.returnValues.token1] = tokenInfo;
+        }
 
-            async function main() {
-                const latestBlock = await web3.eth.getBlockNumber();
-                const fromBlock = 0;
-                const toBlock = latestBlock;
-            
-                const events = await getPoolEventsInRange(fromBlock, toBlock);
-            
-                for (let i = 0, cnt = events.length; i < cnt; ++i) {
-                    const event = events[i];
-                    const isToken0Weth = isWeth(event.returnValues.token0);
-                    const isToken1Weth = isWeth(event.returnValues.token1);
-            
-                    if (!isToken0Weth && !isToken1Weth) {
-                        continue;
-                    }
-            
-                    if (!state.tokens[event.returnValues.token0]) {
-                        const tokenInfo = await getTokenInfo(event.returnValues.token0);
-            
-                        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-                            continue;
-                        }
-            
-                        state.tokens[event.returnValues.token0] = tokenInfo;
-                    }
-                    if (!state.tokens[event.returnValues.token1]) {
-                        const tokenInfo = await getTokenInfo(event.returnValues.token1);
-            
-                        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-                            continue;
-                        }
-            
-                        state.tokens[event.returnValues.token1] = tokenInfo;
-                    }
-            
-                    state.pools[event.returnValues.pool] = event.returnValues;
-                }
-            
-                updatePoolPrices(); // Initialize prices
-            
-                // Set up periodic price updates
-                setInterval(updatePoolPrices, PRICE_UPDATE_INTERVAL);
-            
-                factory.events.PoolCreated({
-                    fromBlock: latestBlock + 1,
-                })
-                .on("connected", function (subscriptionId) {
-                    console.log('pools subscription connected', subscriptionId);
-                })
-                .on('data', async function (event) {
-                    const isToken0Weth = isWeth(event.returnValues.token0);
-                    const isToken1Weth = isWeth(event.returnValues.token1);
-            
-                    if (!isToken0Weth && !isToken1Weth) {
-                        return;
-                    }
-            
-                    if (!state.tokens[event.returnValues.token0]) {
-                        const tokenInfo = await getTokenInfo(event.returnValues.token0);
-            
-                        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-                            return;
-                        }
-            
-                        state.tokens[event.returnValues.token0] = tokenInfo;
-                    }
-                    if (!state.tokens[event.returnValues.token1]) {
-                        const tokenInfo = await getTokenInfo(event.returnValues.token1);
-            
-                        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-                            return;
-                        }
-            
-                        state.tokens[event.returnValues.token1] = tokenInfo;
-                    }
-            
-                    state.pools[event.returnValues.pool] = event.returnValues;
-            
-                    updatePoolPrices();
-                })
-                .on('changed', function (event) {
-                    console.log('changed', event);
-                })
-                .on('error', function (error, receipt) {
-                    console.log('pool created subscription error', error, receipt);
-                    process.exit(1);
-                });
+        state.pools[event.returnValues.pool] = event.returnValues;
+    }
+
+    updatePoolPrices(); // Initialize prices
+
+    // Set up periodic price updates
+    setInterval(updatePoolPrices, PRICE_UPDATE_INTERVAL);
+
+    factory.events.PoolCreated({
+        fromBlock: latestBlock + 1,
+    })
+    .on("connected", function (subscriptionId) {
+        console.log('pools subscription connected', subscriptionId);
+    })
+    .on('data', async function (event) {
+        const isToken0Weth = isWeth(event.returnValues.token0);
+        const isToken1Weth = isWeth(event.returnValues.token1);
+
+        if (!isToken0Weth && !isToken1Weth) {
+            return;
+        }
+
+        if (!state.tokens[event.returnValues.token0]) {
+            const tokenInfo = await getTokenInfo(event.returnValues.token0);
+
+            if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                return;
             }
-            
-            main();
-            
-            const express = require('express');
-            const app = express();
-            
-            app.use(function (req, res, next) {
-                console.log(new Date(), req.connection.remoteAddress, req.method, req.url);
-                res.setHeader('Access-Control-Allow-Origin', '*');
-                res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-                res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-                res.setHeader('Access-Control-Allow-Credentials', true);
-                next();
-            });
-            
-            app.get('/uniswap3', function (req, res) {
-                res.send(Object.keys(state.prices).map((key) => state.prices[key]));
-            });
-            
-            const port = process.env.NODE_PORT || config.DEFAULT_API_PORT;
-            app.listen(port, () => console.log(`Listening on port ${port}`));
+
+            state.tokens[event.returnValues.token0] = tokenInfo;
+        }
+        if (!state.tokens[event.returnValues.token1]) {
+            const tokenInfo = await getTokenInfo(event.returnValues.token1);
+
+            if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                return;
+            }
+
+            state.tokens[event.returnValues.token1] = tokenInfo;
+        }
+
+        state.pools[event.returnValues.pool] = event.returnValues;
+
+        updatePoolPrices();
+    })
+    .on('changed', function (event) {
+        console.log('changed', event);
+    })
+    .on('error', function (error, receipt) {
+        console.log('pool created subscription error', error, receipt);
+        process.exit(1);
+    });
+}
+
+main();
+
+const express = require('express');
+const app = express();
+
+app.use(function (req, res, next) {
+    console.log(new Date(), req.connection.remoteAddress, req.method, req.url);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    next();
+});
+
+app.get('/uniswap3', function (req, res) {
+    res.send(Object.keys(state.prices).map((key) => state.prices[key]));
+});
+
+const port = process.env.NODE_PORT || config.DEFAULT_API_PORT;
+app.listen(port, () => console.log(`Listening on port ${port}`));
