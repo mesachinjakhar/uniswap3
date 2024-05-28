@@ -184,22 +184,26 @@ async function fetchRecentPoolCreatedEvents() {
 }
 
 async function main() {
+    // Subscribe to new block headers
     web3.eth.subscribe('newBlockHeaders')
         .on('connected', function (id) {
             console.info('blocks subscription connected', id)
         })
-        .on('data', function (block) {
+        .on('data', async function (block) {
             console.info(`NEW_BLOCK ${block.number}`)
+            
+            // Process swaps in the new block
+            await processNewBlock(block.number)
         })
         .on('error', function (err) {
             console.error('block subscription error', err)
-
             process.exit(1)
         })
 
+    // Subscribe to swap events
     web3.eth.subscribe('logs', { topics: [UNISWAPV3_SWAP_EVENT_TOPIC] })
         .on('connected', function (id) {
-            console.info('logs', id)
+            console.info('logs subscription connected', id)
         })
         .on('data', async function (raw) {
             if (handledBlocks[raw.blockNumber]) {
@@ -207,11 +211,11 @@ async function main() {
             }
             handledBlocks[raw.blockNumber] = true
 
-            readSyncEventsForBlock(raw.blockNumber)
+            // Process swap events in the block
+            await readSyncEventsForBlock(raw.blockNumber)
         })
         .on('error', function (err) {
-            logError('logs subscription error', err)
-
+            console.error('logs subscription error', err)
             process.exit(1)
         })
 
