@@ -1,12 +1,8 @@
 const fs = require('fs');
 const express = require('express');
-const mathjs = require('mathjs');
 const ethers = require('ethers');
 const Web3 = require('web3');
-
 const config = require('./config.json');
-const math = mathjs.create(mathjs.all);
-math.config({ number: 'BigNumber' });
 
 const app = express();
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
@@ -57,7 +53,7 @@ async function updatePoolPrices(pool) {
         0
     ).call().catch(() => 0);
 
-    if (math.bignumber(ethToTokenPrice).isZero()) {
+    if (ethToTokenPrice === 0) {
         if (state.prices[otherToken]) {
             delete state.prices[otherToken].pools[pool.pool];
         }
@@ -72,37 +68,7 @@ async function updatePoolPrices(pool) {
         0
     ).call().catch(() => 0);
 
-    if (math.bignumber(tokenToEthPrice).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const ethToTokenPricePriceAdjust = await quoter.methods.quoteExactInputSingle(
-        config.WETH_ADDRESS_MAINNET,
-        otherToken,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(ethToTokenPricePriceAdjust).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const tokenToEthPricePriceAdjust = await quoter.methods.quoteExactOutputSingle(
-        otherToken,
-        config.WETH_ADDRESS_MAINNET,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(tokenToEthPricePriceAdjust).isZero()) {
+    if (tokenToEthPrice === 0) {
         if (state.prices[otherToken]) {
             delete state.prices[otherToken].pools[pool.pool];
         }
@@ -119,9 +85,7 @@ async function updatePoolPrices(pool) {
 
     state.prices[otherToken].pools[pool.pool] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        ethToTokenPricePriceAdjust: ethers.utils.formatUnits(ethToTokenPricePriceAdjust, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPricePriceAdjust: ethers.utils.formatUnits(tokenToEthPricePriceAdjust, state.tokens[otherToken].decimals).toString()
+        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString()
     };
 }
 
