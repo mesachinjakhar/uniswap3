@@ -44,7 +44,7 @@ const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3
 const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
 
 const factory = new web3Infura.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
-const quoter = new web3.eth.Contract(IQuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
+const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
 const ONE_WETH = ethers.utils.parseUnits('1', 18).toString();
 
@@ -286,3 +286,21 @@ app.get('/setEthAmount', async function (req, res) {
 
 const port = process.env.NODE_PORT || config.DEFAULT_API_PORT;
 app.listen(port, () => console.log(`Listening on port ${port}`));
+
+function exitHandler(signal) {
+    console.log(`Received signal: ${signal}`);
+    process.exit();
+}
+
+// Catches ctrl+c event
+process.on('SIGINT', exitHandler);
+
+// Catches "kill pid"
+process.on('SIGUSR1', exitHandler);
+process.on('SIGUSR2', exitHandler);
+
+// Catches uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    exitHandler('uncaughtException');
+});
