@@ -183,6 +183,15 @@ async function fetchRecentPoolCreatedEvents() {
     }
 }
 
+async function processNewBlock(blockNumber) {
+    try {
+        await fetchRecentPoolCreatedEvents();
+        console.log('Processing new block:', blockNumber);
+    } catch (error) {
+        console.error('Error processing new block:', error);
+    }
+}
+
 async function main() {
     // Subscribe to new block headers
     web3.eth.subscribe('newBlockHeaders')
