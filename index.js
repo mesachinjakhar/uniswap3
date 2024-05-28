@@ -1,37 +1,16 @@
 const fs = require('fs');
-const config = require('./config.json');
-
+const express = require('express');
 const mathjs = require('mathjs');
+const ethers = require('ethers');
+const Web3 = require('web3');
+
+const config = require('./config.json');
 const math = mathjs.create(mathjs.all);
 math.config({ number: 'BigNumber' });
 
-const ethers = require('ethers');
-const Web3 = require('web3');
+const app = express();
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
-const provider = new Web3.providers.WebsocketProvider(web3Url, {
-    clientConfig: {
-        maxReceivedFrameSize: 10000000000,
-        maxReceivedMessageSize: 10000000000,
-    }
-});
-const web3 = new Web3(provider);
-
-provider.on('connect', function () {
-    console.log('WebSocket Connected');
-});
-
-provider.on('error', function (e) {
-    console.error('WebSocket Error', e);
-    process.exit(1);
-});
-
-provider.on('end', function (e) {
-    console.error('WebSocket Connection Closed', e);
-    process.exit(1);
-});
-
-const web3UrlInfura = `wss://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048`;
-const web3Infura = new Web3(new Web3.providers.WebsocketProvider(web3UrlInfura, {
+const web3 = new Web3(new Web3.providers.WebsocketProvider(web3Url, {
     clientConfig: {
         maxReceivedFrameSize: 10000000000,
         maxReceivedMessageSize: 10000000000,
@@ -39,14 +18,20 @@ const web3Infura = new Web3(new Web3.providers.WebsocketProvider(web3UrlInfura, 
 }));
 
 const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
-const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
-const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
+const IQuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
 const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
 
-const factory = new web3Infura.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
-const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
+const factory = new web3.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
+const quoter = new web3.eth.Contract(IQuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
 const ONE_WETH = ethers.utils.parseUnits('1', 18).toString();
+
+const state = {
+    tokens: {},
+    pools: {},
+    prices: {},
+    customAmountInWei: config.CUSTOM_AMOUNT
+};
 
 function isWeth(address) {
     return config.WETH_ADDRESS_MAINNET === address;
@@ -60,13 +45,6 @@ async function getTokenInfo(address) {
 
     return { symbol, name, decimals };
 }
-
-const state = {
-    tokens: {},
-    pools: {},
-    prices: {},
-    customAmountInWei: config.CUSTOM_AMOUNT
-};
 
 async function updatePoolPrices(pool) {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
@@ -147,8 +125,6 @@ async function updatePoolPrices(pool) {
     };
 }
 
-const UNISWAPV3_SWAP_EVENT_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
-
 async function getPoolEventsInRange(startBlock, endBlock) {
     let currentBlock = startBlock;
     const step = 10000; // adjust this step to fit under the 10000 results limit
@@ -171,36 +147,6 @@ async function getPoolEventsInRange(startBlock, endBlock) {
     }
 
     return events;
-}
-
-async function main() {
-    const latestBlock = await web3.eth.getBlockNumber();
-    const fromBlock = 0;
-    const toBlock = latestBlock;
-
-    const events = await getPoolEventsInRange(fromBlock, toBlock);
-
-    for (let event of events) {
-        await handleEvent(event);
-    }
-
-    factory.events.PoolCreated({
-        fromBlock: latestBlock + 1,
-    })
-    .on("data", async function (event) {
-        await handleEvent(event);
-    })
-    .on('error', function (error, receipt) {
-        console.log('pool created subscription error', error, receipt);
-        process.exit(1);
-    });
-
-    web3.eth.subscribe('newBlockHeaders')
-    .on("data", async function (blockHeader) {
-        console.log('New Block:', blockHeader.number);
-        await updateAllPrices();
-    })
-    .on('error', console.error);
 }
 
 async function handleEvent(event) {
@@ -239,12 +185,40 @@ async function updateAllPrices() {
     }
 }
 
+async function main() {
+    const latestBlock = await web3.eth.getBlockNumber();
+    const fromBlock = 0;
+    const toBlock = latestBlock;
+
+    const events = await getPoolEventsInRange(fromBlock, toBlock);
+
+    for (let event of events) {
+        await handleEvent(event);
+    }
+
+    factory.events.PoolCreated({
+        fromBlock: latestBlock + 1,
+    })
+    .on("data", async function (event) {
+        await handleEvent(event);
+    })
+    .on('error', function (error, receipt) {
+        console.log('pool created subscription error', error, receipt);
+        process.exit(1);
+    });
+
+    web3.eth.subscribe('newBlockHeaders')
+    .on("data", async function (blockHeader) {
+        console.log('New Block:', blockHeader.number);
+        await updateAllPrices();
+    })
+    .on('error', console.error);
+}
+
 main();
 
-const express = require('express');
-const app = express();
-
-app.use((req, res, next) => {
+app.use(function (req, res, next) {
+    console.log(new Date(), req.connection.remoteAddress, req.method, req.url);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
@@ -287,20 +261,15 @@ app.get('/setEthAmount', async function (req, res) {
 const port = process.env.NODE_PORT || config.DEFAULT_API_PORT;
 app.listen(port, () => console.log(`Listening on port ${port}`));
 
-function exitHandler(signal) {
-    console.log(`Received signal: ${signal}`);
-    process.exit();
-}
-
-// Catches ctrl+c event
-process.on('SIGINT', exitHandler);
-
-// Catches "kill pid"
-process.on('SIGUSR1', exitHandler);
-process.on('SIGUSR2', exitHandler);
-
-// Catches uncaught exceptions
+process.on('SIGINT', exitHandler.bind(null, 'SIGINT'));
+process.on('SIGUSR1', exitHandler.bind(null, 'SIGUSR1'));
+process.on('SIGUSR2', exitHandler.bind(null, 'SIGUSR2'));
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     exitHandler('uncaughtException');
 });
+
+function exitHandler(signal) {
+    console.log(`Received signal: ${signal}`);
+    process.exit();
+}
