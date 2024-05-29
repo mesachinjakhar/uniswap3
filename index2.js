@@ -16,6 +16,10 @@ process.on('uncaughtException', exitHandler)
 
 const fs = require('fs')
 const config = require('./config.json')
+const { ErigonProvider } = require("erigon-provider");
+
+const erigonProvider = new ErigonProvider("http://localhost:8545");
+
 
 const mathjs = require('mathjs')
 const math = mathjs.create(mathjs.all)
@@ -55,6 +59,17 @@ const ONE_WETH = ethers.utils.parseUnits('1', 18).toString()
 function isWeth(address) {
     return config.WETH_ADDRESS_MAINNET === address
 }
+
+async function getLatestBlockNumber() {
+    try {
+        const latestBlockNumber = await erigonProvider.getBlockNumber();
+        return latestBlockNumber;
+    } catch (error) {
+        console.error("Error fetching latest block number:", error);
+        return null;
+    }
+}
+
 
 async function getTokenInfo(address) {
     const token = new web3.eth.Contract(IERC20MetadataAbi, address)
@@ -160,6 +175,14 @@ const UNISWAPV3_SWAP_EVENT_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818
 const handledBlocks = {}
 
 async function main() {
+    // Fetch the latest block number
+    const latestBlockNumber = await getLatestBlockNumber();
+
+    if (latestBlockNumber === null) {
+        console.error("Failed to fetch latest block number. Exiting...");
+        process.exit(1);
+    }
+
     web3.eth.subscribe('newBlockHeaders')
         .on('connected', function (id) {
             console.info('blocks subscription connected', id)
@@ -169,75 +192,68 @@ async function main() {
         })
         .on('error', function (err) {
             console.error('block subscription error', err)
+            process.exit(1);
+        });
 
-            process.exit(1)
-        })
-
-    web3.eth.subscribe('logs', { topics: [UNISWAPV3_SWAP_EVENT_TOPIC] })
+    // Subscribe to logs with the latest block as the 'toBlock'
+    web3.eth.subscribe('logs', { fromBlock: 0, toBlock: latestBlockNumber })
         .on('connected', function (id) {
-            console.info('logs', id)
+            console.info('logs', id);
         })
         .on('data', async function (raw) {
+            // Handle incoming logs data
             if (handledBlocks[raw.blockNumber]) {
-                return
+                return;
             }
-            handledBlocks[raw.blockNumber] = true
-
-            readSyncEventsForBlock(raw.blockNumber)
+            handledBlocks[raw.blockNumber] = true;
+            readSyncEventsForBlock(raw.blockNumber);
         })
         .on('error', function (err) {
-            logError('logs subscription error', err)
+            logError('logs subscription error', err);
+            process.exit(1);
+        });
 
-            process.exit(1)
-        })
-
-        async function readSyncEventsForBlock(blockNumber) {
-            const batchSize = 1000; // Define the batch size for each query
-            let fromBlock = blockNumber;
-            let toBlock = blockNumber;
+        async function readSyncEventsForBlock(fromBlock, toBlock) {
+            const batchSize = 10000;
+            let start = fromBlock;
+            let end = toBlock;
         
-            while (true) {
-                toBlock = fromBlock + batchSize - 1; // Set the toBlock for the current batch
-        
+            while (start <= toBlock) {
+                end = Math.min(start + batchSize - 1, toBlock);
+                console.log("Processing logs for block range:", start, "-", end);
                 const logsRaw = await web3.eth.getPastLogs({
-                    fromBlock: fromBlock,
-                    toBlock: toBlock,
+                    fromBlock: start,
+                    toBlock: end,
                     topics: [UNISWAPV3_SWAP_EVENT_TOPIC]
                 });
         
                 if (logsRaw.length === 0) {
-                    // No more logs for this block range, exit the loop
                     break;
                 }
         
                 const syncs = {};
                 for (let i = logsRaw.length - 1; i >= 0; i--) {
                     const data = logsRaw[i];
-        
                     if (data.removed) {
                         continue;
                     }
-        
                     if (!syncs[data.address]) {
                         syncs[data.address] = true;
                     }
                 }
         
-                const promisses = [];
+                const promises = [];
                 const pools = Object.keys(syncs);
                 for (let i = 0; i < pools.length; ++i) {
                     if (!state.pools[pools[i]]) {
                         continue;
                     }
-        
                     const promise = updatePoolPrices(state.pools[pools[i]]);
-                    promisses.push(promise);
+                    promises.push(promise);
                 }
         
-                await Promise.all(promisses);
-        
-                // Update the fromBlock for the next batch
-                fromBlock = toBlock + 1;
+                await Promise.all(promises);
+                start = end + 1;
             }
         }
 
@@ -400,3 +416,4 @@ app.get('/setEthAmount', async function (req, res) {
 
 const port = 3245 // process.env.NODE_PORT || config.DEFAULT_API_PORT
 app.listen(port, () => console.log(`Listening on port ${port}`))
+
