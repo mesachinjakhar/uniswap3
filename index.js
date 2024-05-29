@@ -86,10 +86,17 @@ const BATCH_SIZE = 1000; // Adjust this value as needed
 
 async function fetchPastPoolCreatedEvents(fromBlock, toBlock) {
     try {
-        const events = await factory.getPastEvents('PoolCreated', {
-            fromBlock,
-            toBlock: Math.min(toBlock, fromBlock + BATCH_SIZE - 1)
-        });
+        let events;
+        if (toBlock === 'latest') {
+            events = await factory.getPastEvents('PoolCreated', {
+                fromBlock,
+            });
+        } else {
+            events = await factory.getPastEvents('PoolCreated', {
+                fromBlock,
+                toBlock: Math.min(toBlock, fromBlock + BATCH_SIZE - 1)
+            });
+        }
 
         for (let event of events) {
             const isToken0Weth = isWeth(event.returnValues.token0);
@@ -110,7 +117,7 @@ async function fetchPastPoolCreatedEvents(fromBlock, toBlock) {
             }
         }
 
-        if (toBlock > fromBlock + BATCH_SIZE - 1) {
+        if (toBlock !== 'latest' && toBlock > fromBlock + BATCH_SIZE - 1) {
             await fetchPastPoolCreatedEvents(fromBlock + BATCH_SIZE, toBlock);
         }
     } catch (error) {
