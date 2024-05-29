@@ -2,6 +2,27 @@ const fs = require('fs');
 const config = require('./config.json');
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
+const WebSocket = require('ws');
+
+const ws = new WebSocket(config.DEFAULT_NODE_URL);
+
+ws.on('open', () => {
+    console.log('WebSocket connection opened');
+    // Fetch past events and set up subscriptions here
+});
+
+ws.on('message', (data) => {
+    console.log(`Received message: ${data}`);
+    // Handle incoming messages here
+});
+
+ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+});
+
+ws.on('close', (code, reason) => {
+    console.log(`WebSocket connection closed: ${code} ${reason}`);
+});
 
 const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
 const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
@@ -82,7 +103,7 @@ async function updatePoolPrices(pool) {
     };
 }
 
-const BATCH_SIZE = 1000; // Adjust this value as needed
+const BATCH_SIZE = 10000; // Adjust this value as needed
 
 async function fetchPastPoolCreatedEvents(fromBlock, toBlock) {
     try {
