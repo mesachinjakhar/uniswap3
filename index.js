@@ -82,34 +82,44 @@ async function updatePoolPrices(pool) {
     };
 }
 
-// Fetch existing pool and token data when the app starts
-factory.getPastEvents('PoolCreated', {
-    fromBlock: 0, // or any other start block number
-    toBlock: 'latest'
-})
-.then(async function (events) {
-    for (let event of events) {
-        const isToken0Weth = isWeth(event.returnValues.token0);
-        const isToken1Weth = isWeth(event.returnValues.token1);
+const BATCH_SIZE = 1000; // Adjust this value as needed
 
-        if (isToken0Weth || isToken1Weth) {
-            if (!state.tokens[event.returnValues.token0]) {
-                const tokenInfo = await getTokenInfo(event.returnValues.token0);
-                state.tokens[event.returnValues.token0] = tokenInfo;
-            }
-            if (!state.tokens[event.returnValues.token1]) {
-                const tokenInfo = await getTokenInfo(event.returnValues.token1);
-                state.tokens[event.returnValues.token1] = tokenInfo;
-            }
+async function fetchPastPoolCreatedEvents(fromBlock, toBlock) {
+    try {
+        const events = await factory.getPastEvents('PoolCreated', {
+            fromBlock,
+            toBlock: Math.min(toBlock, fromBlock + BATCH_SIZE - 1)
+        });
 
-            state.pools[event.returnValues.pool] = event.returnValues;
-            updatePoolPrices(state.pools[event.returnValues.pool]);
+        for (let event of events) {
+            const isToken0Weth = isWeth(event.returnValues.token0);
+            const isToken1Weth = isWeth(event.returnValues.token1);
+
+            if (isToken0Weth || isToken1Weth) {
+                if (!state.tokens[event.returnValues.token0]) {
+                    const tokenInfo = await getTokenInfo(event.returnValues.token0);
+                    state.tokens[event.returnValues.token0] = tokenInfo;
+                }
+                if (!state.tokens[event.returnValues.token1]) {
+                    const tokenInfo = await getTokenInfo(event.returnValues.token1);
+                    state.tokens[event.returnValues.token1] = tokenInfo;
+                }
+
+                state.pools[event.returnValues.pool] = event.returnValues;
+                updatePoolPrices(state.pools[event.returnValues.pool]);
+            }
         }
+
+        if (toBlock > fromBlock + BATCH_SIZE - 1) {
+            await fetchPastPoolCreatedEvents(fromBlock + BATCH_SIZE, toBlock);
+        }
+    } catch (error) {
+        console.error('Error fetching PoolCreated events:', error);
     }
-})
-.catch(function (error) {
-    console.error('Error fetching past PoolCreated events:', error);
-});
+}
+
+// Call the function to fetch past events in batches
+fetchPastPoolCreatedEvents(0, 'latest');
 
 web3.eth.subscribe('newBlockHeaders')
     .on('data', async function (block) {
