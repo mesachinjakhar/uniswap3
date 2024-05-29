@@ -8,8 +8,8 @@ const app = express();
 const port = 5001;
 
 const config = {
-    WETH_ADDRESS_MAINNET: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    QUOTER_ADDRESS_MAINNET: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
+    WETH_ADDRESS_MAINNET: ethers.utils.getAddress('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'),
+    QUOTER_ADDRESS_MAINNET: ethers.utils.getAddress('0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6'),
     ONE_WETH: ethers.utils.parseEther('1'),
     FEE: 3000 // Example fee tier
 };
@@ -36,7 +36,7 @@ const getPoolPrices = async (pool) => {
         
         const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
             config.WETH_ADDRESS_MAINNET,
-            otherToken,
+            ethers.utils.getAddress(otherToken),
             pool.fee,
             config.ONE_WETH,
             0
@@ -78,7 +78,7 @@ const updatePoolPrices = async (pool) => {
         
         const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
             config.WETH_ADDRESS_MAINNET,
-            otherToken,
+            ethers.utils.getAddress(otherToken),
             pool.fee,
             config.ONE_WETH,
             0
@@ -117,9 +117,9 @@ app.get('/uniswap3', async (req, res) => {
 const initializeData = async () => {
     // Example: initializing one pool with some tokens
     const examplePool = {
-        pool: '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8', // Example pool address
-        token0: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
-        token1: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
+        pool: ethers.utils.getAddress('0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8'), // Example pool address
+        token0: ethers.utils.getAddress('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'), // WETH
+        token1: ethers.utils.getAddress('0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'), // USDC
         fee: config.FEE
     };
 
