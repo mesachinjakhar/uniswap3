@@ -16,7 +16,6 @@ process.on('uncaughtException', exitHandler)
 
 const fs = require('fs')
 const config = require('./config.json')
-const { ErigonProvider } = require("erigon-provider");
 
 const erigonProvider = new ErigonProvider("http://localhost:8545");
 
@@ -416,4 +415,3 @@ app.get('/setEthAmount', async function (req, res) {
 
 const port = 3245 // process.env.NODE_PORT || config.DEFAULT_API_PORT
 app.listen(port, () => console.log(`Listening on port ${port}`))
-
