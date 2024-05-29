@@ -191,37 +191,55 @@ async function main() {
             process.exit(1)
         })
 
-    async function readSyncEventsForBlock(blockNumber) {
-        const logsRaw = await web3.eth.getPastLogs({ fromBlock: blockNumber, toBlock: blockNumber, topics: [UNISWAPV3_SWAP_EVENT_TOPIC] })
-
-        const syncs = {}
-        const cnt = logsRaw.length
-        for (let i = cnt - 1; i >= 0; i--) {
-            const data = logsRaw[i]
-
-            if (data.removed) {
-                continue
-            }
-
-            if (!syncs[data.address]) {
-                syncs[data.address] = true
+        async function readSyncEventsForBlock(blockNumber) {
+            const batchSize = 10000; // Define the batch size for each query
+            let fromBlock = blockNumber;
+            let toBlock = blockNumber;
+        
+            while (true) {
+                toBlock = fromBlock + batchSize - 1; // Set the toBlock for the current batch
+        
+                const logsRaw = await web3.eth.getPastLogs({
+                    fromBlock: fromBlock,
+                    toBlock: toBlock,
+                    topics: [UNISWAPV3_SWAP_EVENT_TOPIC]
+                });
+        
+                if (logsRaw.length === 0) {
+                    // No more logs for this block range, exit the loop
+                    break;
+                }
+        
+                const syncs = {};
+                for (let i = logsRaw.length - 1; i >= 0; i--) {
+                    const data = logsRaw[i];
+        
+                    if (data.removed) {
+                        continue;
+                    }
+        
+                    if (!syncs[data.address]) {
+                        syncs[data.address] = true;
+                    }
+                }
+        
+                const promisses = [];
+                const pools = Object.keys(syncs);
+                for (let i = 0; i < pools.length; ++i) {
+                    if (!state.pools[pools[i]]) {
+                        continue;
+                    }
+        
+                    const promise = updatePoolPrices(state.pools[pools[i]]);
+                    promisses.push(promise);
+                }
+        
+                await Promise.all(promisses);
+        
+                // Update the fromBlock for the next batch
+                fromBlock = toBlock + 1;
             }
         }
-
-        const promisses = []
-        const pools = Object.keys(syncs)
-        for (let i = 0; i < pools.length; ++i) {
-            if (!state.pools[pools[i]]) {
-                continue
-            }
-
-            const promise = updatePoolPrices(state.pools[pools[i]])
-
-            promisses.push(promise)
-        }
-
-        await Promise.all(promisses)
-    }
 
     factory.getPastEvents('PoolCreated', {
         fromBlock: 0,
