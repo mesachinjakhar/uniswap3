@@ -56,6 +56,9 @@ async function updatePoolPrices(pool) {
     if (!ethToTokenPrice || !tokenToEthPrice) {
         if (state.prices[otherToken]) {
             delete state.prices[otherToken].pools[pool.pool];
+            if (Object.keys(state.prices[otherToken].pools).length === 0) {
+                delete state.prices[otherToken];
+            }
         }
         return;
     }
@@ -78,6 +81,35 @@ async function updatePoolPrices(pool) {
         tokenToEthPrice: tokenToEthPrice.toString()
     };
 }
+
+// Fetch existing pool and token data when the app starts
+factory.getPastEvents('PoolCreated', {
+    fromBlock: 0, // or any other start block number
+    toBlock: 'latest'
+})
+.then(async function (events) {
+    for (let event of events) {
+        const isToken0Weth = isWeth(event.returnValues.token0);
+        const isToken1Weth = isWeth(event.returnValues.token1);
+
+        if (isToken0Weth || isToken1Weth) {
+            if (!state.tokens[event.returnValues.token0]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token0);
+                state.tokens[event.returnValues.token0] = tokenInfo;
+            }
+            if (!state.tokens[event.returnValues.token1]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token1);
+                state.tokens[event.returnValues.token1] = tokenInfo;
+            }
+
+            state.pools[event.returnValues.pool] = event.returnValues;
+            updatePoolPrices(state.pools[event.returnValues.pool]);
+        }
+    }
+})
+.catch(function (error) {
+    console.error('Error fetching past PoolCreated events:', error);
+});
 
 web3.eth.subscribe('newBlockHeaders')
     .on('data', async function (block) {
