@@ -134,7 +134,7 @@ async function fetchPastPoolCreatedEvents(fromBlock, toBlock) {
                 }
 
                 state.pools[event.returnValues.pool] = event.returnValues;
-                updatePoolPrices(state.pools[event.returnValues.pool]);
+                await updatePoolPrices(state.pools[event.returnValues.pool]);
             }
         }
 
