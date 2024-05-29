@@ -23,24 +23,16 @@ const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://127.0.0.1:8546'
 
 const quoter = new web3.eth.Contract(QuoterABI, config.QUOTER_ADDRESS_MAINNET);
 
-app.get('/uniswap3', async (req, res) => {
-    try {
-        const response = {};
-        for (const poolAddress in state.pools) {
-            const pool = state.pools[poolAddress];
-            response[poolAddress] = await getPoolPrices(pool);
-        }
-        res.json(response);
-    } catch (error) {
-        console.error('Error fetching prices:', error);
-        res.status(500).send('Error fetching prices');
-    }
-});
+// Helper function to check if the token is WETH
+const isWeth = (token) => {
+    return token.toLowerCase() === config.WETH_ADDRESS_MAINNET.toLowerCase();
+};
 
+// Function to get pool prices
 const getPoolPrices = async (pool) => {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
     try {
-        console.log(`Updating prices for pool: ${pool.pool}`);
+        console.log(`Fetching prices for pool: ${pool.pool}`);
         
         const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
             config.WETH_ADDRESS_MAINNET,
@@ -65,12 +57,8 @@ const getPoolPrices = async (pool) => {
     }
 };
 
-const isWeth = (token) => {
-    return token.toLowerCase() === config.WETH_ADDRESS_MAINNET.toLowerCase();
-};
-
+// Periodically update pool prices
 const UPDATE_INTERVAL = 60000; // Update prices every minute
-
 setInterval(async () => {
     try {
         for (const poolAddress in state.pools) {
@@ -82,6 +70,7 @@ setInterval(async () => {
     }
 }, UPDATE_INTERVAL);
 
+// Function to update pool prices
 const updatePoolPrices = async (pool) => {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
     try {
@@ -109,6 +98,46 @@ const updatePoolPrices = async (pool) => {
     }
 };
 
-app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
+// Endpoint to get pool prices
+app.get('/uniswap3', async (req, res) => {
+    try {
+        const response = {};
+        for (const poolAddress in state.pools) {
+            const pool = state.pools[poolAddress];
+            response[poolAddress] = await getPoolPrices(pool);
+        }
+        res.json(response);
+    } catch (error) {
+        console.error('Error fetching prices:', error);
+        res.status(500).send('Error fetching prices');
+    }
+});
+
+// Function to initialize pool and token data
+const initializeData = async () => {
+    // Example: initializing one pool with some tokens
+    const examplePool = {
+        pool: '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8', // Example pool address
+        token0: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+        token1: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
+        fee: config.FEE
+    };
+
+    // Adding pool to state
+    state.pools[examplePool.pool] = examplePool;
+
+    // Adding tokens to state
+    state.tokens[examplePool.token0] = { decimals: 18 };
+    state.tokens[examplePool.token1] = { decimals: 6 };
+
+    console.log('Initialized data with example pool and tokens');
+};
+
+// Initialize data and start server
+initializeData().then(() => {
+    app.listen(port, () => {
+        console.log(`Listening on port ${port}`);
+    });
+}).catch(error => {
+    console.error('Error initializing data:', error);
 });
