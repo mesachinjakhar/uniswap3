@@ -192,7 +192,7 @@ async function main() {
         })
 
         async function readSyncEventsForBlock(blockNumber) {
-            const batchSize = 10000; // Define the batch size for each query
+            const batchSize = 1000; // Define the batch size for each query
             let fromBlock = blockNumber;
             let toBlock = blockNumber;
         
