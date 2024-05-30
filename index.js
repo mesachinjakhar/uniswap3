@@ -11,8 +11,7 @@ const DAI_TOKEN = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18,
 // Configuration
 const config = {
   rpc: {
-    local: 'http://localhost:8545',
-    mainnet: 'https://mainnet.infura.io/v3/0ac57a06f2994538829c14745750d721',
+    local: 'http://localhost:8545', // Update with your Erigon node URL
   },
   tokens: {
     in: WETH_TOKEN,
