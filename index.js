@@ -16,17 +16,29 @@ let latestSwapPrice = null;
 const app = express();
 const port = config.DEFAULT_API_PORT;
 
+const feeTiers = [500, 3000, 10000]; // Fee tiers: 0.05%, 0.3%, 1%
+
 async function fetchSwapPrice(tokenAddress) {
   try {
     const amountIn = web3.utils.toWei('1', 'ether'); // 1 ETH in wei
-    const amountOut = await quoterContract.methods.quoteExactInputSingle(
-      config.WETH_ADDRESS_MAINNET,
-      tokenAddress,
-      3000, // Pool fee tier (0.3%)
-      amountIn,
-      0
-    ).call();
-    return web3.utils.fromWei(amountOut, 'ether');
+    let bestPrice = 0;
+
+    for (const fee of feeTiers) {
+      const amountOut = await quoterContract.methods.quoteExactInputSingle(
+        config.WETH_ADDRESS_MAINNET,
+        tokenAddress,
+        fee,
+        amountIn,
+        0
+      ).call();
+
+      const price = parseFloat(web3.utils.fromWei(amountOut, 'ether'));
+      if (price > bestPrice) {
+        bestPrice = price;
+      }
+    }
+
+    return bestPrice;
   } catch (error) {
     console.error(`Error fetching swap price for token ${tokenAddress}:`, error.message);
     return null;
