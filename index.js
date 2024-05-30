@@ -1,4 +1,5 @@
-const { ethers } = require("ethers");
+const { ethers } = require('ethers');
+const { ChainId, Fetcher, Route, Trade, TokenAmount, TradeType, WETH, Percent } = require('@uniswap/sdk-core');
 const fs = require('fs');
 
 // Load config
@@ -6,42 +7,38 @@ const config = JSON.parse(fs.readFileSync('config.json'));
 
 // Define constants from config
 const NODE_URL = config.DEFAULT_NODE_URL;
-const UNISWAPV3_QUOTER_ADDRESS = config.UNISWAPV3_QUOTER_ADDRESS;
 const WETH_ADDRESS = config.WETH_ADDRESS_MAINNET;
 const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI mainnet address
-const AMOUNT_IN_WEI = ethers.utils.parseEther("1"); // 1 ETH in Wei
 
-// ABI for Uniswap V3 Quoter
-const quoterAbi = [
-    "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external view returns (uint256 amountOut)"
-];
+// Initialize ethers provider
+const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
-// Function to get the swap price
 async function getSwapPrice() {
-    // Connect to local Erigon node
-    const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
+    // Fetch the token data
+    const DAI = await Fetcher.fetchTokenData(ChainId.MAINNET, DAI_ADDRESS, provider);
+    const WETH_TOKEN = WETH[ChainId.MAINNET];
 
-    // Create a contract instance for the Quoter
-    const quoterContract = new ethers.Contract(UNISWAPV3_QUOTER_ADDRESS, quoterAbi, provider);
+    // Fetch the pair data
+    const pair = await Fetcher.fetchPairData(WETH_TOKEN, DAI, provider);
 
-    // Fee tier for the ETH/DAI pool (0.3% fee)
-    const fee = 3000;
+    // Create a route
+    const route = new Route([pair], WETH_TOKEN);
 
-    try {
-        // Get the amount of DAI for 1 ETH using callStatic to make a read-only call
-        const amountOut = await quoterContract.callStatic.quoteExactInputSingle(WETH_ADDRESS, DAI_ADDRESS, fee, AMOUNT_IN_WEI, 0);
-        
-        // Convert the amountOut from Wei to DAI
-        const amountOutInDai = ethers.utils.formatUnits(amountOut, 18);
+    // Create a trade for exact input of 1 WETH
+    const trade = new Trade(route, new TokenAmount(WETH_TOKEN, ethers.utils.parseEther("1").toString()), TradeType.EXACT_INPUT);
 
-        console.log(`1 ETH is equal to ${amountOutInDai} DAI`);
-    } catch (error) {
-        console.error("Error fetching swap price:", error);
-    }
+    // Set slippage tolerance to 0.5%
+    const slippageTolerance = new Percent('50', '10000');
+
+    // Get the amount of DAI received for 1 WETH
+    const amountOut = trade.minimumAmountOut(slippageTolerance).raw;
+
+    // Convert the amountOut from Wei to DAI
+    const amountOutInDai = ethers.utils.formatUnits(amountOut, DAI.decimals);
+
+    console.log(`1 ETH is equal to ${amountOutInDai} DAI`);
 }
 
-// Call the function to get the swap price
 getSwapPrice();
-
 
 
