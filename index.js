@@ -1,6 +1,5 @@
 const { ethers } = require("ethers");
-const { ChainId, Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType } = require('@uniswap/sdk-core');
-const { Quoter } = require('@uniswap/v3-sdk');
+const { ChainId, Token, WETH, TradeType, Fetcher, Route, Trade, TokenAmount, Percent } = require('@uniswap/sdk');
 const config = require('./config.json');
 
 async function getSwapPrice() {
@@ -21,25 +20,11 @@ async function getSwapPrice() {
   const amountIn = ethers.utils.parseEther('1'); // 1 WETH
   const trade = new Trade(route, new TokenAmount(WETH, amountIn.toString()), TradeType.EXACT_INPUT);
 
-  // Quoter contract instance
-  const quoter = new ethers.Contract(
-    config.UNISWAPV3_QUOTER_ADDRESS,
-    ['function quoteExactInputSingle(address,address,uint24,uint256,uint160) external returns (uint256)'],
-    provider
-  );
-
-  // Quote swap price
-  const amountOut = await quoter.callStatic.quoteExactInputSingle(
-    WETH.address,
-    DAI.address,
-    3000, // Pool fee
-    amountIn,
-    0
-  );
-
-  console.log(`Swap 1 WETH to DAI: ${ethers.utils.formatUnits(amountOut, 18)} DAI`);
+  // Output the price
+  console.log(`Swap 1 WETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
 }
 
 getSwapPrice().catch(console.error);
+
 
 
