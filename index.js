@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const { Pool, Route, Trade } = require('@uniswap/v3-sdk');
-const { Token, CurrencyAmount, TradeType } = require('@uniswap/sdk-core'); // TradeType is part of sdk-core
+const { Token, CurrencyAmount, TradeType } = require('@uniswap/sdk-core');
 
 // Load config
 const config = {
@@ -56,6 +56,16 @@ async function getSwapPrice() {
   const amountIn = CurrencyAmount.fromRawAmount(WETH, config.CUSTOM_AMOUNT);
   console.log(`Amount In: ${JSON.stringify(amountIn)}`);
 
+  // Check route and amountIn validity
+  if (!route || !amountIn) {
+    throw new Error('Route or AmountIn is not properly defined');
+  }
+
+  // Ensure input and output currencies are properly defined
+  if (!route.input || !route.output) {
+    throw new Error('Route input or output is not properly defined');
+  }
+
   const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
   console.log(`Trade: ${JSON.stringify(trade)}`);
 
@@ -72,4 +82,3 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
-
