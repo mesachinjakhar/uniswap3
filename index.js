@@ -13,7 +13,7 @@ const AMOUNT_IN_WEI = ethers.utils.parseEther("1"); // 1 ETH in Wei
 
 // ABI for Uniswap V3 Quoter
 const quoterAbi = [
-    "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+    "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external view returns (uint256 amountOut)"
 ];
 
 // Function to get the swap price
@@ -28,8 +28,8 @@ async function getSwapPrice() {
     const fee = 3000;
 
     try {
-        // Get the amount of DAI for 1 ETH
-        const amountOut = await quoterContract.quoteExactInputSingle(WETH_ADDRESS, DAI_ADDRESS, fee, AMOUNT_IN_WEI, 0);
+        // Get the amount of DAI for 1 ETH using callStatic to make a read-only call
+        const amountOut = await quoterContract.callStatic.quoteExactInputSingle(WETH_ADDRESS, DAI_ADDRESS, fee, AMOUNT_IN_WEI, 0);
         
         // Convert the amountOut from Wei to DAI
         const amountOutInDai = ethers.utils.formatUnits(amountOut, 18);
@@ -42,5 +42,6 @@ async function getSwapPrice() {
 
 // Call the function to get the swap price
 getSwapPrice();
+
 
 
