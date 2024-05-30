@@ -13,9 +13,12 @@ async function main() {
     const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
     const signer = provider.getSigner();
 
+    // Use eth_requestAccounts method instead of eth_accounts
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+
     const uniswapQuoter = new ethers.Contract(config.UNISWAPV3_QUOTER_ADDRESS, ['function quoteExactInput(bytes path, uint256 amountIn) external view returns (uint256 amountOut)'], signer);
 
-    const path = [config.WETH_ADDRESS_MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F']; // You need to replace 'TOKEN_ADDRESS_OF_DIA' with the actual DIA token address
+    const path = [config.WETH_ADDRESS_MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F']; // Replace 'TOKEN_ADDRESS_OF_DIA' with the actual DIA token address
     const amountIn = config.CUSTOM_AMOUNT;
 
     const amountOut = await uniswapQuoter.quoteExactInput(ethers.utils.defaultAbiCoder.encode(['address[]'], [path]), amountIn);
