@@ -1,7 +1,6 @@
 const { ethers } = require('ethers');
 const { computePoolAddress } = require('@uniswap/v3-sdk');
 const { Token } = require('@uniswap/sdk-core');
-const QuoterABI = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json').abi;
 const IUniswapV3PoolABI = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json').abi;
 
 // Define token constants
@@ -20,10 +19,9 @@ const config = {
     poolFee: 500,
   },
   POOL_FACTORY_CONTRACT_ADDRESS: '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Uniswap V3 factory address
-  QUOTER_CONTRACT_ADDRESS: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6', // Uniswap V3 Quoter address
 };
 
-async function getQuote() {
+async function getSwapPrice() {
   try {
     // Connect to provider
     const provider = new ethers.providers.JsonRpcProvider(config.rpc.local);
@@ -43,35 +41,13 @@ async function getQuote() {
       provider
     );
 
-    // Fetch pool metadata
-    const [token0, token1, fee, liquidity, slot0] = await Promise.all([
-      poolContract.token0(),
-      poolContract.token1(),
-      poolContract.fee(),
-      poolContract.liquidity(),
-      poolContract.slot0(),
-    ]);
+    // Fetch current swap price
+    const currentPrice = await poolContract.slot0();
 
-    // Instantiate Quoter contract
-    const quoterContract = new ethers.Contract(
-      config.QUOTER_CONTRACT_ADDRESS,
-      QuoterABI,
-      provider
-    );
-
-    // Get quote using Quoter contract
-    const quotedAmountOut = await quoterContract.callStatic.quoteExactInputSingle(
-      token0,
-      token1,
-      fee,
-      config.tokens.amountIn.toString(),
-      0
-    );
-
-    console.log(`Quoted amount out: ${quotedAmountOut.toString()} ${config.tokens.out.symbol}`);
+    console.log(`Current swap price: ${currentPrice.toString()}`);
   } catch (error) {
-    console.error('Error getting quote:', error);
+    console.error('Error getting swap price:', error);
   }
 }
 
-getQuote();
+getSwapPrice();
