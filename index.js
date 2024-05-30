@@ -5,7 +5,6 @@ const mathjs = require('mathjs');
 const math = mathjs.create(mathjs.all);
 math.config({ number: 'BigNumber' });
 
-const ethers = require('ethers');
 const Web3 = require('web3');
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
 const provider = new Web3.providers.WebsocketProvider(web3Url, {
@@ -80,9 +79,6 @@ async function updatePoolPrices(pool) {
     ).call().catch(() => 0);
 
     if (math.bignumber(ethToTokenPrice).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
         return;
     }
 
@@ -95,82 +91,20 @@ async function updatePoolPrices(pool) {
     ).call().catch(() => 0);
 
     if (math.bignumber(tokenToEthPrice).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const ethToTokenPricePriceAdjust = await quoter.methods.quoteExactInputSingle(
-        config.WETH_ADDRESS_MAINNET,
-        otherToken,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(ethToTokenPricePriceAdjust).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const tokenToEthPricePriceAdjust = await quoter.methods.quoteExactOutputSingle(
-        otherToken,
-        config.WETH_ADDRESS_MAINNET,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(tokenToEthPricePriceAdjust).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
         return;
     }
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
             address: otherToken,
-            ...state.tokens[otherToken],
-            pools: {}
+            ...state.tokens[otherToken]
         };
     }
 
-    state.prices[otherToken].pools[pool.pool] = {
+    state.prices[otherToken] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        ethToTokenPricePriceAdjust: ethers.utils.formatUnits(ethToTokenPricePriceAdjust, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPricePriceAdjust: ethers.utils.formatUnits(tokenToEthPricePriceAdjust, state.tokens[otherToken].decimals).toString()
+        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString()
     };
-}
-
-const UNISWAPV3_SWAP_EVENT_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
-
-async function getPoolEventsInRange(startBlock, endBlock) {
-    let currentBlock = startBlock;
-    const step = 10000; // adjust this step to fit under the 10000 results limit
-    let events = [];
-
-    while (currentBlock < endBlock) {
-        const nextBlock = Math.min(currentBlock + step, endBlock);
-
-        try {
-            const eventBatch = await factory.getPastEvents('PoolCreated', {
-                fromBlock: currentBlock,
-                toBlock: nextBlock
-            });
-            events = events.concat(eventBatch);
-        } catch (error) {
-            console.error(`Error fetching events from blocks ${currentBlock} to ${nextBlock}:`, error);
-        }
-
-        currentBlock = nextBlock + 1; // move to the next range
-    }
-
-    return events;
 }
 
 async function main() {
@@ -251,6 +185,7 @@ app.use(function (req, res, next) {
     res.setHeader('Access-Control-Allow-Credentials', true);
     next();
 });
+
 
 app.get('/uniswap3', function (req, res) {
     res.send(Object.keys(state.prices).map((key) => state.prices[key]));
