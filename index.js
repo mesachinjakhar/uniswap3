@@ -1,60 +1,29 @@
-const { ethers } = require('@ethersproject/providers');
-const { Contract } = require('@ethersproject/contracts');
-const { UniswapV3Factory, Quoter } = require('@uniswap/v3-periphery');
+const { ethers } = require('ethers');
 
-// Replace with your provider URL (likely "ws://127.0.0.1:8545")
-const provider = new ethers.providers.JsonRpcProvider(process.env.NODE_URL);
-
-// Load addresses from config.json (assuming it's in the same directory)
-const configData = require('./config.json');
-
-const factoryAddress = configData.UNISWAPV3_FACTORY_ADDRESS;
-const quoterAddress = configData.UNISWAPV3_QUOTER_ADDRESS;
-const wethAddress = configData.WETH_ADDRESS_MAINNET;
-
-// Define the DIA token address (replace with actual DIA address)
-const diaAddress = '0x...'; // Replace with the actual DIA contract address
+const config = {
+    DEFAULT_API_PORT: 5001,
+    DEFAULT_NODE_URL: 'ws://127.0.0.1:8545',
+    UNISWAPV3_FACTORY_ADDRESS: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+    UNISWAPV3_QUOTER_ADDRESS: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6',
+    WETH_ADDRESS_MAINNET: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    CUSTOM_AMOUNT: '1000000000000000000' // 1 ETH in wei
+};
 
 async function main() {
-  const signer = provider.getSigner(); // (Optional) If using a signing provider
+    const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
+    const signer = provider.getSigner();
 
-  // Create Uniswap v3 Factory and Quoter contracts
-  const factory = new UniswapV3Factory(factoryAddress, provider);
-  const quoter = new Quoter(quoterAddress, provider);
+    const uniswapQuoter = new ethers.Contract(config.UNISWAPV3_QUOTER_ADDRESS, ['function quoteExactInput(bytes path, uint256 amountIn) external view returns (uint256 amountOut)'], signer);
 
-  // Get ETH and DIA token information
-  const eth = new Contract(wethAddress, ERC20_ABI, provider);
-  const dia = new Contract(diaAddress, ERC20_ABI, provider);
+    const path = [config.WETH_ADDRESS_MAINNET, 'TOKEN_ADDRESS_OF_DIA']; // You need to replace 'TOKEN_ADDRESS_OF_DIA' with the actual DIA token address
+    const amountIn = config.CUSTOM_AMOUNT;
 
-  // Define amount of ETH to swap (1 ETH in wei)
-  const ethAmount = ethers.utils.parseUnits('1', 18);  // 1 ETH in wei
+    const amountOut = await uniswapQuoter.quoteExactInput(ethers.utils.defaultAbiCoder.encode(['address[]'], [path]), amountIn);
 
-  // Get the pool for the ETH-DIA pair
-  const pool = await factory.getPool(wethAddress, diaAddress, 3000); // Fee tier (adjust if needed)
-
-  // Get the quote for swapping ETH to DIA
-  const quote = await quoter.callStatic(
-    quoter.quoteExactInputSingle(
-      ethAddress,
-      diaAddress,
-      3000, // Fee tier
-      ethAmount,
-      false // Use the best pool along the route (optional, set to true for specific paths)
-    )
-  );
-
-  // Convert raw quote data to human-readable format
-  const amountOut = parseFloat(ethers.utils.formatUnits(quote.amountOut, dia.decimals));
-
-  console.log(`Swapping 1 ETH for approximately ${amountOut} DIA`);
+    console.log(`Amount out: ${amountOut.toString()}`);
 }
 
-// Replace with actual ERC20 ABI (you can find it online)
-const ERC20_ABI = [
-  // ... ERC20 token ABI definition (functions like balanceOf, transfer, etc.)
-];
-
-// Run the main function
-main().catch((error) => {
-  console.error(error);
+main().then(() => process.exit(0)).catch(error => {
+    console.error(error);
+    process.exit(1);
 });
