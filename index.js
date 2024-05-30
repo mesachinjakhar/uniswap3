@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const fs = require('fs');
-const { Token, WETH9, TradeType, Percent, CurrencyAmount, Route, Trade } = require('@uniswap/sdk-core');
+const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
@@ -22,12 +22,15 @@ async function getSwapPrice() {
     // Create instances of the WETH and DAI tokens
     const WETH = new Token(chainId, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
     const DAI = new Token(chainId, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
+    console.log(WETH);
+    console.log(DAI);
 
     // Initialize the AlphaRouter
     const router = new AlphaRouter({ chainId, provider });
 
     // Define the amount of WETH to swap (1 WETH)
     const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString()));
+    console.log(amountIn);
 
     // Generate the route using the AlphaRouter
     const route = await router.route(
@@ -35,16 +38,16 @@ async function getSwapPrice() {
         DAI,
         TradeType.EXACT_INPUT,
         {
-            recipient: "0x0000000000000000000000000000000000000000", // dummy address
+            recipient: "0x0000000000000000000000000000000000000000", // replace with a valid address
             slippageTolerance: new Percent(50, 10000), // 0.5%
-            deadline: Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes from the current Unix time
+            deadline: Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes from now
         }
     );
+    console.log(route);
 
     if (route) {
         // Get the amount of DAI received for 1 WETH
         const amountOut = route.quote.toFixed(18);
-
         console.log(`1 ETH is equal to ${amountOut} DAI`);
     } else {
         console.error("No route found");
