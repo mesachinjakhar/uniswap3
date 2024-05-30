@@ -1,5 +1,5 @@
 const { Token, TradeType, TokenAmount, Percent, Route } = require('@uniswap/sdk-core');
-const { Fetcher } = require('@uniswap/v3-sdk');
+const { Fetcher } = require('@uniswap/v3-sdk/dist/fetcher');
 const { abi: IUniswapV3PoolABI } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json');
 const ethers = require('ethers');
 
