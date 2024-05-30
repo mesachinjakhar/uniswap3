@@ -1,55 +1,61 @@
 const { ethers } = require('ethers');
-const { ChainId, Token, TradeType, Percent, CurrencyAmount } = require('@uniswap/sdk-core');
-const { AlphaRouter } = require('@uniswap/smart-order-router');
+const { Pool, Route, Trade, Token, TokenAmount, TradeType } = require('@uniswap/v3-sdk');
+const { Percent } = require('@uniswap/sdk-core');
+const { getNetwork } = require('@ethersproject/networks');
+const { fetch } = require('cross-fetch');
 
-require('dotenv').config();
-
-// Define token addresses for ETH and DAI on the respective chain (MAINNET)
-const ETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH address
-const DAI_ADDRESS = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
-
-// Use local Erigon node URL
-const provider = new ethers.providers.JsonRpcProvider(process.env.ERIGON_URL);
-
-const main = async () => {
-    try {
-        // Create token instances for ETH and DAI
-        const WETH = new Token(ChainId.MAINNET, ETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
-        const DAI = new Token(ChainId.MAINNET, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
-
-        // Create router instance
-        const router = new AlphaRouter({ chainId: ChainId.MAINNET, provider });
-
-        // Define amount of 1 ETH in smallest units (wei)
-        const amountIn = CurrencyAmount.fromRawAmount(WETH, ethers.utils.parseUnits('1', 18).toString());
-
-        // Define swap options
-        const options = {
-            recipient: '0x0000000000000000000000000000000000000000', // replace with your address
-            slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
-            deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
-        };
-
-        // Route the swap
-        const route = await router.route(
-            amountIn,
-            DAI,
-            TradeType.EXACT_INPUT,
-            options
-        );
-
-        if (route) {
-            // Get the best quote
-            const bestQuote = route.quote.toFixed(6); // Ensuring we get the best quote to 6 decimal places
-            console.log(`Best price for swapping 1 ETH to DAI: ${bestQuote} DAI`);
-        } else {
-            console.log('Route not found or invalid.');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
+// Load config
+const config = {
+  DEFAULT_API_PORT: 5001,
+  DEFAULT_NODE_URL: "http://127.0.0.1:8545",
+  UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+  UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+  WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  CUSTOM_AMOUNT: "500000000000000000"
 };
 
-main().catch(console.error);
+async function getSwapPrice() {
+  // Connect to local Erigon node
+  const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
 
+  // Token definitions
+  const DAI = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
+  const WETH = new Token(1, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ether');
+
+  // Get pool data from Uniswap V3
+  const poolAddress = await getPoolAddress(provider, DAI, WETH, 3000); // 0.3% fee tier
+  const poolContract = new ethers.Contract(poolAddress, [
+    'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+    'function liquidity() external view returns (uint128)'
+  ], provider);
+
+  const slot0 = await poolContract.slot0();
+  const liquidity = await poolContract.liquidity();
+
+  const pool = new Pool(
+    DAI,
+    WETH,
+    3000,
+    slot0.sqrtPriceX96.toString(),
+    liquidity.toString(),
+    slot0.tick
+  );
+
+  // Create trade route and execute trade
+  const route = new Route([pool], WETH, DAI);
+  const trade = new Trade(route, new TokenAmount(WETH, config.CUSTOM_AMOUNT), TradeType.EXACT_INPUT);
+
+  console.log(`1 ETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
+}
+
+// Helper function to get pool address
+async function getPoolAddress(provider, tokenA, tokenB, fee) {
+  const factoryContract = new ethers.Contract(config.UNISWAPV3_FACTORY_ADDRESS, [
+    'function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)'
+  ], provider);
+
+  return await factoryContract.getPool(tokenA.address, tokenB.address, fee);
+}
+
+getSwapPrice().catch(console.error);
 
