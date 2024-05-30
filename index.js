@@ -15,7 +15,7 @@ const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS)
 
 async function fetchUniswapV3Prices() {
   const tokenIn = config.WETH_ADDRESS_MAINNET;
-  const tokenOut = "0x84cA8bc7997272c7CfB4D0Cd3D55cd942B3fe1d5"; // DIA token address
+  const tokenOut = "0x84ca8bc7997272c7cfb4d0cd3d55cd942b3fe1d5"; // DIA token address (checksum-less)
   const amountIn = config.CUSTOM_AMOUNT;
 
   try {
