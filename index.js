@@ -109,6 +109,9 @@ async function fetchTickData(poolContract) {
       });
     }
   }
+  if (tickData.length === 0) {
+    throw new Error('No valid tick data available');
+  }
   return tickData;
 }
 
