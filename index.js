@@ -6,7 +6,7 @@ const IUniswapV3PoolABI = require('@uniswap/v3-core/artifacts/contracts/interfac
 
 // Define token constants
 const WETH_TOKEN = new Token(1, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18, 'WETH', 'Wrapped Ether');
-const USDC_TOKEN = new Token(1, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 6, 'USDC', 'USD//C');
+const DAI_TOKEN = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
 
 // Configuration
 const config = {
@@ -15,9 +15,9 @@ const config = {
     mainnet: 'https://mainnet.infura.io/v3/0ac57a06f2994538829c14745750d721',
   },
   tokens: {
-    in: USDC_TOKEN,
-    amountIn: 1000,
-    out: WETH_TOKEN,
+    in: WETH_TOKEN,
+    amountIn: ethers.utils.parseEther('1'), // 1 ETH in wei
+    out: DAI_TOKEN,
     poolFee: 500,
   },
   POOL_FACTORY_CONTRACT_ADDRESS: '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Uniswap V3 factory address
@@ -69,11 +69,10 @@ async function getQuote() {
       0
     );
 
-    console.log(`Quoted amount out: ${quotedAmountOut.toString()}`);
+    console.log(`Quoted amount out: ${quotedAmountOut.toString()} ${config.tokens.out.symbol}`);
   } catch (error) {
     console.error('Error getting quote:', error);
   }
 }
 
 getQuote();
-
