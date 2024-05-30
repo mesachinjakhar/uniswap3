@@ -1,5 +1,4 @@
 const { Token, TradeType, TokenAmount, Percent, Route } = require('@uniswap/sdk-core');
-const { abi: IUniswapV3PoolABI } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json');
 const ethers = require('ethers');
 
 const chainId = 1; // Mainnet
@@ -12,9 +11,8 @@ async function getSwapPrice(tokenIn, tokenOut, amount) {
   const tokenOutInstance = new Token(chainId, tokenOut, 18);
 
   const poolAddress = await getPoolAddress(tokenInInstance, tokenOutInstance, provider);
-  const poolContract = new ethers.Contract(poolAddress, IUniswapV3PoolABI, provider);
 
-  const [reserve0, reserve1] = await poolContract.slot0();
+  const [reserve0, reserve1] = await getReserves(poolAddress, tokenInInstance, tokenOutInstance, provider);
   const [token0, token1] = tokenInInstance.address.toLowerCase() < tokenOutInstance.address.toLowerCase()
     ? [tokenInInstance, tokenOutInstance]
     : [tokenOutInstance, tokenInInstance];
@@ -40,6 +38,22 @@ async function getPoolAddress(token0, token1, provider) {
   );
   const poolAddress = await poolAddressFinder.getPool(token0.address, token1.address, 3000);
   return poolAddress;
+}
+
+async function getReserves(poolAddress, token0, token1, provider) {
+  const reserves = await provider.call({
+    to: poolAddress,
+    data: '0x0d4e4f76' // Encoded function signature for getReserves()
+  });
+
+  const reserveA = ethers.BigNumber.from(reserves.slice(0, 34));
+  const reserveB = ethers.BigNumber.from(reserves.slice(34, 68));
+
+  const [reserve0, reserve1] = token0.address.toLowerCase() < token1.address.toLowerCase()
+    ? [reserveA, reserveB]
+    : [reserveB, reserveA];
+
+  return [reserve0, reserve1];
 }
 
 function getAmountOut(amountIn, reserveIn, reserveOut, decimalsIn, decimalsOut) {
