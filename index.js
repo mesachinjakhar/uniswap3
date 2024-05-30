@@ -22,6 +22,12 @@ async function getSwapPrice() {
 
   // Get pool data from Uniswap V3
   const poolAddress = await getPoolAddress(provider, DAI, WETH, 3000); // 0.3% fee tier
+  console.log(`Pool address: ${poolAddress}`);
+  
+  if (!poolAddress || poolAddress === ethers.constants.AddressZero) {
+    throw new Error('Pool address not found');
+  }
+
   const poolContract = new ethers.Contract(poolAddress, [
     'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
     'function liquidity() external view returns (uint128)'
@@ -29,6 +35,8 @@ async function getSwapPrice() {
 
   const slot0 = await poolContract.slot0();
   const liquidity = await poolContract.liquidity();
+  console.log(`Slot0: ${JSON.stringify(slot0)}`);
+  console.log(`Liquidity: ${liquidity}`);
 
   const pool = new Pool(
     DAI,
@@ -39,10 +47,17 @@ async function getSwapPrice() {
     slot0.tick
   );
 
+  console.log(`Pool: ${JSON.stringify(pool)}`);
+
   // Create trade route and execute trade
   const route = new Route([pool], WETH, DAI);
+  console.log(`Route: ${JSON.stringify(route)}`);
+
   const amountIn = CurrencyAmount.fromRawAmount(WETH, config.CUSTOM_AMOUNT);
+  console.log(`Amount In: ${JSON.stringify(amountIn)}`);
+
   const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+  console.log(`Trade: ${JSON.stringify(trade)}`);
 
   console.log(`1 ETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
 }
@@ -57,3 +72,4 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
+
