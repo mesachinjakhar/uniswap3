@@ -1,5 +1,5 @@
 const Web3 = require('web3');
-const { Token, TradeType, Route, Trade, Fetcher } = require('@uniswap/sdk');
+const { Token, TradeType, Route, Trade, Fetcher } = require('@uniswap/v2-sdk');
 const { abi: QuoterABI } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
 const { abi: SwapRouterABI } = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/ISwapRouter.sol/ISwapRouter.json');
 const { abi: FactoryABI } = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Factory.sol/IUniswapV3Factory.json');
