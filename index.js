@@ -1,5 +1,5 @@
 const { ethers } = require('ethers');
-const { AlphaRouter, ChainId } = require('@uniswap/smart-order-router');
+const { AlphaRouter } = require('@uniswap/smart-order-router');
 const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
 const { ChainId } = require('@uniswap/sdk-core');
 
