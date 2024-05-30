@@ -7,6 +7,8 @@ const tokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI token 
 
 async function getSwapPrice(tokenIn, tokenOut, amount) {
   const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+  const poolAddress = await getPoolAddress(tokenInInstance, tokenOutInstance, provider);
+  const poolContract = new ethers.Contract(poolAddress, IUniswapV3PoolABI, provider);
 
   const tokenInInstance = new Token(chainId, tokenIn, 18);
   const tokenOutInstance = new Token(chainId, tokenOut, 18);
