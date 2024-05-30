@@ -28,6 +28,9 @@ const main = async () => {
     'Dai Stablecoin'
   );
 
+  console.log('WETH Token:', WETH_TOKEN);
+  console.log('DAI Token:', DAI);
+
   const router = new AlphaRouter({
     chainId: chainId,
     provider: provider
@@ -58,5 +61,6 @@ const main = async () => {
 };
 
 main().catch(console.error);
+
 
 
