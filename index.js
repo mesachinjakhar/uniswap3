@@ -6,7 +6,7 @@ const { ChainId } = require('@uniswap/sdk-core');
 require('dotenv').config();
 
 // Use local Erigon node URL
-const provider = new ethers.providers.JsonRpcProvider('ws://127.0.0.1:8545');
+const provider = new ethers.providers.JsonRpcProvider('ws://127.0.0.1:8546');
 
 const main = async () => {
   try {
