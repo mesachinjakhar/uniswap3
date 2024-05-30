@@ -38,6 +38,7 @@ async function fetchSwapPrice(tokenAddress) {
 
         // Adjust for slippage tolerance
         const adjustedPrice = bestPrice * (1 - slippageTolerance);
+        console.log(`Best Price: ${bestPrice}, Adjusted Price (with Slippage): ${adjustedPrice}`);
         return adjustedPrice;
 
     } catch (error) {
@@ -68,4 +69,3 @@ app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
     updateSwapPrice(); // Initial price fetch
 });
-
