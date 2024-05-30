@@ -1,30 +1,35 @@
 const { ethers } = require("ethers");
-const { ChainId, Token, WETH, TradeType, Fetcher, Route, Trade, TokenAmount, Percent } = require('@uniswap/sdk');
 const config = require('./config.json');
+
+// ABI for the Quoter contract's quoteExactInputSingle method
+const QUOTER_ABI = [
+  "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+];
 
 async function getSwapPrice() {
   // Connect to the local Erigon node
   const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
 
-  // Define tokens
-  const WETH = new Token(ChainId.MAINNET, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ether');
-  const DAI = new Token(ChainId.MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
+  // Define addresses and parameters
+  const WETH_ADDRESS = config.WETH_ADDRESS_MAINNET;
+  const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI mainnet address
+  const POOL_FEE = 3000; // 0.3% pool fee tier
+  const AMOUNT_IN = ethers.utils.parseEther('1'); // 1 WETH
+  const SQRT_PRICE_LIMIT_X96 = 0; // No price limit
 
-  // Fetch the pair data
-  const pair = await Fetcher.fetchPairData(WETH, DAI, provider);
+  // Instantiate the Quoter contract
+  const quoter = new ethers.Contract(config.UNISWAPV3_QUOTER_ADDRESS, QUOTER_ABI, provider);
 
-  // Create a route
-  const route = new Route([pair], WETH);
+  // Get the quoted amount out
+  const amountOut = await quoter.quoteExactInputSingle(
+    WETH_ADDRESS,
+    DAI_ADDRESS,
+    POOL_FEE,
+    AMOUNT_IN,
+    SQRT_PRICE_LIMIT_X96
+  );
 
-  // Create a trade
-  const amountIn = ethers.utils.parseEther('1'); // 1 WETH
-  const trade = new Trade(route, new TokenAmount(WETH, amountIn.toString()), TradeType.EXACT_INPUT);
-
-  // Output the price
-  console.log(`Swap 1 WETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
+  console.log(`Swap 1 WETH to DAI: ${ethers.utils.formatUnits(amountOut, 18)} DAI`);
 }
 
 getSwapPrice().catch(console.error);
-
-
-
