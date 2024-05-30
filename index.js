@@ -14,7 +14,6 @@ const config = {
   },
   tokens: {
     in: WETH_TOKEN,
-    amountIn: ethers.utils.parseEther('1'), // 1 ETH in wei
     out: DAI_TOKEN,
     poolFee: 500,
   },
@@ -42,12 +41,15 @@ async function getSwapPrice() {
     );
 
     // Fetch current swap price
-    const currentPrice = await poolContract.slot0();
+    const slot0 = await poolContract.slot0();
+    const sqrtPriceX96 = slot0.sqrtPriceX96.toString();
+    const price = ethers.utils.formatUnits(sqrtPriceX96, 192);
 
-    console.log(`Current swap price: ${currentPrice.toString()}`);
+    console.log(`1 ETH = ${price} ${config.tokens.out.symbol}`);
   } catch (error) {
     console.error('Error getting swap price:', error);
   }
 }
 
 getSwapPrice();
+
