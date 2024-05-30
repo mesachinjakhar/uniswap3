@@ -11,31 +11,11 @@ const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
 const quoterContract = new web3.eth.Contract(quoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
-const uniswapSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3';
+const diaTokenAddress = '0x84cC02D8Db94aD7aAc83B512DEcF4F5CF4488B4F'; // DIA token address
+let latestSwapPrice = null;
 
 const app = express();
 const port = config.DEFAULT_API_PORT;
-
-async function fetchPools() {
-  const query = `
-    {
-      pools(first: 1000) {
-        id
-        liquidity
-        token0 {
-          id
-          symbol
-        }
-        token1 {
-          id
-          symbol
-        }
-      }
-    }
-  `;
-  const response = await axios.post(uniswapSubgraphUrl, { query });
-  return response.data.data.pools;
-}
 
 async function fetchSwapPrice(tokenAddress) {
   try {
@@ -54,36 +34,25 @@ async function fetchSwapPrice(tokenAddress) {
   }
 }
 
-app.get('/uniswap3', async (req, res) => {
-  console.log('Fetching Uniswap v3 pools...');
-  const pools = await fetchPools();
-  const uniqueTokens = new Set();
-  const tokenLiquidityMap = {};
+async function updateSwapPrice() {
+  latestSwapPrice = await fetchSwapPrice(diaTokenAddress);
+  console.log(`Updated DIA price: 1 ETH -> ${latestSwapPrice} DIA`);
+}
 
-  pools.forEach(pool => {
-    if (parseInt(pool.liquidity) > 0) { // Filter pools with liquidity
-      uniqueTokens.add(pool.token0.id);
-      uniqueTokens.add(pool.token1.id);
-      tokenLiquidityMap[pool.token0.id] = pool.liquidity;
-      tokenLiquidityMap[pool.token1.id] = pool.liquidity;
-    }
-  });
-
-  console.log('Fetching swap prices for tokens...');
-  const prices = {};
-  for (const token of uniqueTokens) {
-    console.log(`Fetching price for token: ${token} with liquidity: ${tokenLiquidityMap[token]}`);
-    const price = await fetchSwapPrice(token);
-    if (price) {
-      prices[token] = price;
-    } else {
-      prices[token] = null;
-    }
-  }
-
-  res.json(prices);
+app.get('/uniswap3', (req, res) => {
+  res.json({ '1 ETH to DIA': latestSwapPrice });
 });
 
-app.listen(port, () => {
+web3.eth.subscribe('newBlockHeaders', async (error, result) => {
+  if (!error) {
+    console.log(`New block received. Block # ${result.number}`);
+    await updateSwapPrice();
+  } else {
+    console.error('Error subscribing to new blocks:', error);
+  }
+});
+
+app.listen(port, async () => {
   console.log(`Server running on http://localhost:${port}`);
+  await updateSwapPrice(); // Fetch initial price
 });
