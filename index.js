@@ -62,6 +62,15 @@ async function getSwapPrice() {
       throw new Error('Route, AmountIn, or route input/output is not properly defined');
     }
 
+    // Log properties of amountIn
+    console.log(`amountIn numerator: ${amountIn.numerator}`);
+    console.log(`amountIn denominator: ${amountIn.denominator}`);
+
+    // Check if amountIn properties are properly defined
+    if (!amountIn.numerator || !amountIn.denominator) {
+      throw new Error('AmountIn numerator or denominator is not properly defined');
+    }
+
     const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
     console.log(`Trade: ${JSON.stringify(trade)}`);
     console.log(`1 WETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
@@ -80,3 +89,4 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
+
