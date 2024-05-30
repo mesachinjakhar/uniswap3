@@ -1,53 +1,42 @@
-const express = require('express');
-const { request, gql } = require('graphql-request');
+const Web3 = require('web3');
+const { abi: QuoterABI } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
 
-const app = express();
-const port = config.DEFAULT_API_PORT;
+const config = {
+  DEFAULT_API_PORT: 5001,
+  DEFAULT_NODE_URL: "ws://127.0.0.1:8545",
+  UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+  UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+  WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  CUSTOM_AMOUNT: "500000000000000000"
+};
 
-const UNISWAP_V3_SUBGRAPH_URL = 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3';
+const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
+const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
 
-const GET_POOL_PRICES = gql`
-  query poolPrices($poolAddress: ID!) {
-    pool(id: $poolAddress) {
-      token0Price
-      token1Price
-    }
-  }
-`;
+async function fetchUniswapV3Prices() {
+  const tokenIn = config.WETH_ADDRESS_MAINNET;
+  const tokenOut = "0x84cA8bc7997272c7CfB4D0Cd3D55cd942B3fe1d5"; // DIA token address
+  const amountIn = config.CUSTOM_AMOUNT;
 
-const daiPoolAddress = '0x60594a405d53811d3bc4766596efd80fd545a270'; // DAI/WETH pool address
-
-let latestPoolPrices = null;
-
-async function fetchPoolPrices() {
   try {
-    const { pool } = await request(
-      UNISWAP_V3_SUBGRAPH_URL,
-      GET_POOL_PRICES,
-      { poolAddress: daiPoolAddress }
-    );
+    const quoteResult = await quoter.methods.quoteExactInputSingle(
+      tokenIn,
+      tokenOut,
+      3000, // fee tier
+      amountIn,
+      0 // sqrtPriceLimitX96
+    ).call();
 
-    latestPoolPrices = {
-      token0Price: parseFloat(pool.token0Price),
-      token1Price: parseFloat(pool.token1Price),
-    };
+    const amountOut = quoteResult.amountOut;
+    const ethAmount = web3.utils.fromWei(amountIn, 'ether');
+    const diaAmount = web3.utils.fromWei(amountOut, 'ether');
 
-    console.log('Updated pool prices:', latestPoolPrices);
+    console.log(`Swapping 1 ETH for DIA:
+    ETH Amount: ${ethAmount}
+    DIA Amount: ${diaAmount}`);
   } catch (error) {
-    console.error('Error fetching pool prices:', error);
+    console.error('Error fetching Uniswap V3 prices:', error);
   }
 }
 
-app.get('/uniswap3', (req, res) => {
-  res.json(latestPoolPrices);
-});
-
-// Fetch initial pool prices
-fetchPoolPrices();
-
-// Update pool prices periodically (e.g., every 10 seconds)
-setInterval(fetchPoolPrices, 10000);
-
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+fetchUniswapV3Prices();
