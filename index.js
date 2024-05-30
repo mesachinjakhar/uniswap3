@@ -1,5 +1,5 @@
 const { ethers } = require('ethers');
-const { Pool, Route, Trade } = require('@uniswap/v3-sdk');
+const { Pool, Route, Trade, TickListDataProvider } = require('@uniswap/v3-sdk');
 const { Token, CurrencyAmount, TradeType } = require('@uniswap/sdk-core');
 
 // Load config
@@ -31,7 +31,8 @@ async function getSwapPrice() {
 
     const poolContract = new ethers.Contract(poolAddress, [
       'function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-      'function liquidity() external view returns (uint128)'
+      'function liquidity() external view returns (uint128)',
+      'function ticks(int24) external view returns (int24, int24, uint128, uint128, uint128, uint32, bool)' // Add this line to fetch tick data
     ], provider);
 
     const slot0 = await poolContract.slot0();
@@ -39,13 +40,17 @@ async function getSwapPrice() {
     console.log(`Slot0: ${JSON.stringify(slot0)}`);
     console.log(`Liquidity: ${liquidity}`);
 
+    // Fetch tick data for the pool
+    const tickData = await fetchTickData(poolContract);
+
     const pool = new Pool(
       DAI,
       WETH,
       3000,
       slot0.sqrtPriceX96.toString(),
       liquidity.toString(),
-      slot0.tick
+      slot0.tick,
+      new TickListDataProvider(tickData) // Provide tick data to the pool
     );
 
     console.log(`Pool: ${JSON.stringify(pool)}`);
@@ -88,5 +93,16 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
   return await factoryContract.getPool(tokenA.address, tokenB.address, fee);
 }
 
+// Helper function to fetch tick data
+async function fetchTickData(poolContract) {
+  const tickData = {};
+  for (let tick = -887272; tick <= 887272; tick += 60) { // Modify the range and step as needed
+    const [tickIndex, , , , , ,] = await poolContract.ticks(tick);
+    tickData[tickIndex] = true; // Store the tick index
+  }
+  return tickData;
+}
+
 getSwapPrice().catch(console.error);
+
 
