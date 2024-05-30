@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
-const { ChainId, Fetcher, Route, Trade, TokenAmount, TradeType, WETH, Percent } = require('@uniswap/sdk-core');
 const fs = require('fs');
+const { ChainId, Token, Fetcher, Route, Trade, TradeType, TokenAmount, Percent } = require('@uniswap/sdk');
+const { WETH } = require('@uniswap/sdk-core');
 
 // Load config
 const config = JSON.parse(fs.readFileSync('config.json'));
@@ -15,11 +16,11 @@ const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
 async function getSwapPrice() {
     // Fetch the token data
-    const DAI = await Fetcher.fetchTokenData(ChainId.MAINNET, DAI_ADDRESS, provider);
-    const WETH_TOKEN = WETH[ChainId.MAINNET];
+    const WETH_TOKEN = new Token(ChainId.MAINNET, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
+    const DAI_TOKEN = new Token(ChainId.MAINNET, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
 
     // Fetch the pair data
-    const pair = await Fetcher.fetchPairData(WETH_TOKEN, DAI, provider);
+    const pair = await Fetcher.fetchPairData(WETH_TOKEN, DAI_TOKEN, provider);
 
     // Create a route
     const route = new Route([pair], WETH_TOKEN);
@@ -34,7 +35,7 @@ async function getSwapPrice() {
     const amountOut = trade.minimumAmountOut(slippageTolerance).raw;
 
     // Convert the amountOut from Wei to DAI
-    const amountOutInDai = ethers.utils.formatUnits(amountOut, DAI.decimals);
+    const amountOutInDai = ethers.utils.formatUnits(amountOut, 18);
 
     console.log(`1 ETH is equal to ${amountOutInDai} DAI`);
 }
