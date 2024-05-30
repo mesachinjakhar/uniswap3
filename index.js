@@ -53,23 +53,21 @@ async function getSwapPrice() {
   const route = new Route([pool], WETH, DAI);
   console.log(`Route: ${JSON.stringify(route)}`);
 
-  const amountIn = CurrencyAmount.fromRawAmount(WETH, config.CUSTOM_AMOUNT);
+  const amountIn = CurrencyAmount.fromRawAmount(WETH, ethers.BigNumber.from(config.CUSTOM_AMOUNT));
   console.log(`Amount In: ${JSON.stringify(amountIn)}`);
 
-  // Check route and amountIn validity
-  if (!route || !amountIn) {
-    throw new Error('Route or AmountIn is not properly defined');
+  // Ensure route, amountIn, input, and output currencies are properly defined
+  if (!route || !amountIn || !route.input || !route.output) {
+    throw new Error('Route, AmountIn, or route input/output is not properly defined');
   }
 
-  // Ensure input and output currencies are properly defined
-  if (!route.input || !route.output) {
-    throw new Error('Route input or output is not properly defined');
+  try {
+    const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+    console.log(`Trade: ${JSON.stringify(trade)}`);
+    console.log(`1 ETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
+  } catch (error) {
+    console.error('Error creating trade:', error);
   }
-
-  const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
-  console.log(`Trade: ${JSON.stringify(trade)}`);
-
-  console.log(`1 ETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
 }
 
 // Helper function to get pool address
