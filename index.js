@@ -98,13 +98,16 @@ async function fetchTickData(poolContract) {
   const tickData = [];
   for (let tick = -887272; tick <= 887272; tick += 60) { // Modify the range and step as needed
     const tickInfo = await poolContract.ticks(tick);
-    tickData.push({
-      tick: tick,
-      liquidityGross: tickInfo[2].toString(),
-      liquidityNet: tickInfo[3].toString(),
-      feeGrowthOutside0X128: tickInfo[4].toString(),
-      feeGrowthOutside1X128: tickInfo[5].toString(),
-    });
+    // Only include ticks with non-zero liquidity
+    if (tickInfo[2].gt(0) || tickInfo[3].gt(0)) {
+      tickData.push({
+        tick: tick,
+        liquidityGross: tickInfo[2].toString(),
+        liquidityNet: tickInfo[3].toString(),
+        feeGrowthOutside0X128: tickInfo[4].toString(),
+        feeGrowthOutside1X128: tickInfo[5].toString(),
+      });
+    }
   }
   return tickData;
 }
