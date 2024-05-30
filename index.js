@@ -71,7 +71,7 @@ async function getSwapPrice() {
       throw new Error('AmountIn numerator or denominator is not properly defined');
     }
 
-    const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+    const trade = Trade.exactIn(route, amountIn);
     console.log(`Trade: ${JSON.stringify(trade)}`);
     console.log(`1 WETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
   } catch (error) {
@@ -89,4 +89,5 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
+
 
