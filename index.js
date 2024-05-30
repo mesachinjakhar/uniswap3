@@ -32,7 +32,7 @@ async function getSwapPrice() {
     const slippageTolerance = new Percent('50', '10000');
 
     // Get the amount of DAI received for 1 WETH
-    const amountOut = trade.minimumAmountOut(slippageTolerance).raw;
+    const amountOut = trade.minimumAmountOut(slippageTolerance).raw.toString();
 
     // Convert the amountOut from Wei to DAI
     const amountOutInDai = ethers.utils.formatUnits(amountOut, 18);
@@ -41,5 +41,3 @@ async function getSwapPrice() {
 }
 
 getSwapPrice();
-
-
