@@ -1,4 +1,5 @@
 // File: index.js
+const express = require('express');
 const Web3 = require('web3');
 const { abi: quoterAbi } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
 const axios = require('axios');
@@ -12,11 +13,15 @@ const quoterContract = new web3.eth.Contract(quoterAbi, config.UNISWAPV3_QUOTER_
 
 const uniswapSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3';
 
+const app = express();
+const port = config.DEFAULT_API_PORT;
+
 async function fetchPools() {
   const query = `
     {
       pools(first: 1000) {
         id
+        liquidity
         token0 {
           id
           symbol
@@ -49,26 +54,36 @@ async function fetchSwapPrice(tokenAddress) {
   }
 }
 
-async function main() {
+app.get('/uniswap3', async (req, res) => {
   console.log('Fetching Uniswap v3 pools...');
   const pools = await fetchPools();
   const uniqueTokens = new Set();
-  
+  const tokenLiquidityMap = {};
+
   pools.forEach(pool => {
-    uniqueTokens.add(pool.token0.id);
-    uniqueTokens.add(pool.token1.id);
+    if (parseInt(pool.liquidity) > 0) { // Filter pools with liquidity
+      uniqueTokens.add(pool.token0.id);
+      uniqueTokens.add(pool.token1.id);
+      tokenLiquidityMap[pool.token0.id] = pool.liquidity;
+      tokenLiquidityMap[pool.token1.id] = pool.liquidity;
+    }
   });
 
   console.log('Fetching swap prices for tokens...');
+  const prices = {};
   for (const token of uniqueTokens) {
-    console.log(`Fetching price for token: ${token}`);
+    console.log(`Fetching price for token: ${token} with liquidity: ${tokenLiquidityMap[token]}`);
     const price = await fetchSwapPrice(token);
     if (price) {
-      console.log(`1 ETH -> ${price} for token ${token}`);
+      prices[token] = price;
+    } else {
+      prices[token] = null;
     }
   }
-}
 
-main().catch(error => {
-  console.error('Error in main execution:', error.message);
+  res.json(prices);
+});
+
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
 });
