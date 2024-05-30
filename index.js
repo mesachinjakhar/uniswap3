@@ -1,59 +1,43 @@
-const Web3 = require('web3');
-const { Token, TradeType, Route, Trade, Fetcher } = require('@uniswap/v2-sdk');
-const { abi: QuoterABI } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
-const { abi: SwapRouterABI } = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/ISwapRouter.sol/ISwapRouter.json');
-const { abi: FactoryABI } = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Factory.sol/IUniswapV3Factory.json');
+const { ethers } = require('ethers');
+const { Pool, Route, Trade, TradeType, CurrencyAmount } = require('@uniswap/v3-sdk');
+const { Token, Percent } = require('@uniswap/sdk-core');
+const { Fetcher } = require('@uniswap/v3-sdk');
+const fetch = require('node-fetch');
 
 const config = {
-    DEFAULT_API_PORT: 5001,
-    DEFAULT_NODE_URL: "ws://127.0.0.1:8545",
-    UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-    UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
-    WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-    DAI_ADDRESS_MAINNET: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-    CUSTOM_AMOUNT: "1000000000000000000" // 1 ETH in wei
+    DEFAULT_NODE_URL: 'https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID', // replace with your Infura Project ID
+    WETH_ADDRESS_MAINNET: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    DAI_ADDRESS_MAINNET: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+    CUSTOM_AMOUNT: '1000000000000000000' // 1 ETH in wei
 };
 
-const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
+// Initialize ethers provider
+const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
 
 const WETH = new Token(1, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ether');
 const DAI = new Token(1, config.DAI_ADDRESS_MAINNET, 18, 'DAI', 'Dai Stablecoin');
-const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
 
-const amountIn = config.CUSTOM_AMOUNT;
-const poolFees = [500, 3000, 10000]; // 0.05%, 0.30%, 1% fee tiers
+const fetchUniswapPrice = async () => {
+    try {
+        // Fetch the pool data for WETH/DAI
+        const WETHToken = await Fetcher.fetchTokenData(1, config.WETH_ADDRESS_MAINNET, provider);
+        const DAIToken = await Fetcher.fetchTokenData(1, config.DAI_ADDRESS_MAINNET, provider);
+        const WETH_DAI_POOL = await Fetcher.fetchPoolData(WETHToken, DAIToken, 3000, provider); // Using 0.3% fee tier for the example
 
-const fetchPrices = async () => {
-    for (const fee of poolFees) {
-        try {
-            const amountOut = await quoter.methods.quoteExactInputSingle(
-                config.WETH_ADDRESS_MAINNET,
-                config.DAI_ADDRESS_MAINNET,
-                fee, // Pool fee
-                amountIn,
-                0
-            ).call();
+        // Creating the route
+        const route = new Route([WETH_DAI_POOL], WETH, DAI);
 
-            console.log(`Price for swapping 1 ETH to DAI with ${fee / 10000}% fee: ${web3.utils.fromWei(amountOut, 'ether')} DAI`);
-        } catch (error) {
-            console.error(`Error fetching quote with fee tier ${fee}:`, error);
-        }
+        // Defining the amount in
+        const amountIn = CurrencyAmount.fromRawAmount(WETH, config.CUSTOM_AMOUNT);
+
+        // Creating the trade
+        const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+
+        // Output the price
+        console.log(`Price for swapping 1 ETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
+    } catch (error) {
+        console.error('Error fetching price:', error);
     }
 };
 
-const main = async () => {
-    // Initial price fetch
-    await fetchPrices();
-
-    // Subscribe to new block headers
-    web3.eth.subscribe('newBlockHeaders', (error, result) => {
-        if (!error) {
-            console.log(`New block detected: ${result.number}`);
-            fetchPrices();
-        } else {
-            console.error('Error subscribing to new block headers:', error);
-        }
-    });
-};
-
-main().catch(console.error);
+fetchUniswapPrice().catch(console.error);
