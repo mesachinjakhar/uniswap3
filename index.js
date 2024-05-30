@@ -1,5 +1,5 @@
 const { JsonRpcProvider } = require('@ethersproject/providers');
-const { Route, Trade, TokenAmount, TradeType, Fetcher } = require('@uniswap/sdk');
+const { Route, Trade, TokenAmount, TradeType, Percent, Fetcher } = require('@uniswap/sdk');
 const { AddressZero } = require('@ethersproject/constants');
 const { BigNumber } = require('@ethersproject/bignumber');
 
@@ -21,11 +21,14 @@ async function main() {
         const route = new Route([pair], WETH, DAI);
         const amountIn = new TokenAmount(WETH, BigNumber.from('10').pow(WETH.decimals)); // Amount of input (1 ETH)
 
-        // Execute the trade
-        const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
-        const amountOut = trade.minimumAmountOut(0.01); // Minimum amount of output (0.01 DAI)
+        // Define slippage tolerance
+        const slippageTolerance = new Percent('50', '10000'); // 0.5%
 
-        console.log(`Amount of ETH needed for 1 DAI: ${amountOut.toFixed(4)}`);
+        // Calculate the minimum amount of output tokens
+        const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+        const amountOutMin = trade.minimumAmountOut(slippageTolerance);
+
+        console.log(`Amount of ETH needed for 1 DAI with ${slippageTolerance.toSignificantDigits(4)}% slippage tolerance: ${amountOutMin.toFixed(4)}`);
     } catch (error) {
         console.error('Error:', error);
     }
