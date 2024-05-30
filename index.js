@@ -1,7 +1,6 @@
 const { ethers } = require('ethers');
-const { AlphaRouter } = require('@uniswap/smart-order-router');
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { ChainId } = require('@uniswap/sdk-core');
+const { Route, Trade, TokenAmount, TradeType } = require('@uniswap/sdk');
+const { ChainId } = require('@uniswap/sdk');
 
 require('dotenv').config();
 
@@ -10,31 +9,25 @@ const provider = new ethers.providers.WebSocketProvider(process.env.WS_URL);
 
 const main = async () => {
   try {
-    const WETH = new Token(ChainId.MAINNET, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18, 'WETH', 'Wrapped Ether');
-    const DAI = new Token(ChainId.MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
-
-    const router = new AlphaRouter({ chainId: ChainId.MAINNET, provider });
-
-    const amountIn = ethers.utils.parseUnits('1', 18); // 1 ETH in wei
-
-    const options = {
-      slippageTolerance: new Percent('5', '10000'), // Adjusted slippage tolerance as a fraction (0.05%)
-      deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
-      type: 1 // Specify the swap type (SwapType.EXACT_INPUT)
+    const WETH = {
+      chainId: ChainId.MAINNET,
+      address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      decimals: 18,
+    };
+    const DAI = {
+      chainId: ChainId.MAINNET,
+      address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+      decimals: 18,
     };
 
-    const route = await router.route(
-      CurrencyAmount.fromRawAmount(WETH, amountIn.toString()),
-      DAI,
-      TradeType.EXACT_INPUT,
-      options
-    );
+    const pair = new Route([{
+      input: new TokenAmount(WETH, '1000000000000000000'), // 1 ETH in wei
+      output: new TokenAmount(DAI, '1'),
+    }], WETH);
 
-    if (route) {
-      console.log(`Best price for swapping 1 ETH to DAI: ${route.quote.toExact()} DAI`);
-    } else {
-      console.log('No route found for the swap.');
-    }
+    const trade = new Trade(pair, new TokenAmount(WETH, '1000000000000000000'), TradeType.EXACT_INPUT);
+
+    console.log(`Best price for swapping 1 ETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
   } catch (error) {
     console.error('Error:', error);
   }
