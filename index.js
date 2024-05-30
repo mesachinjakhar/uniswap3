@@ -65,4 +65,5 @@ web3.eth.subscribe('newBlockHeaders', async (error, result) => {
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  updateSwapPrice
+  updateSwapPrice(); // Initial price fetch
+});
