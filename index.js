@@ -43,9 +43,9 @@ async function getSwapPrice() {
     // Fetch current swap price
     const slot0 = await poolContract.slot0();
     const sqrtPriceX96 = slot0.sqrtPriceX96.toString();
-    const price = ethers.utils.formatUnits(sqrtPriceX96, 192);
+    const price = ethers.BigNumber.from(sqrtPriceX96).pow(2).div(2 ** 192).toString();
 
-    console.log(`1 ETH = ${price} ${config.tokens.out.symbol}`);
+    console.log(`1 ETH = ${ethers.utils.formatUnits(price, config.tokens.out.decimals)} ${config.tokens.out.symbol}`);
   } catch (error) {
     console.error('Error getting swap price:', error);
   }
