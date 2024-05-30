@@ -8,7 +8,8 @@ const config = {
     UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
     UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
     WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-    CUSTOM_AMOUNT: "1000000000000000000" // 1 ETH in wei
+    CUSTOM_AMOUNT: "1000000000000000000", // 1 ETH in wei
+    SLIPPAGE_TOLERANCE: 0.003 // 0.3% slippage
 };
 
 const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
@@ -30,7 +31,9 @@ const fetchPrices = async () => {
                 0
             ).call();
 
-            console.log(`Price for swapping 1 ETH to DAI with ${fee / 10000}% fee: ${web3.utils.fromWei(amountOut, 'ether')} DAI`);
+            const amountOutWithSlippage = web3.utils.toBN(amountOut).mul(web3.utils.toBN(1000 - config.SLIPPAGE_TOLERANCE * 1000)).div(web3.utils.toBN(1000));
+
+            console.log(`Price for swapping 1 ETH to DAI with ${fee / 10000}% fee (including ${config.SLIPPAGE_TOLERANCE * 100}% slippage): ${web3.utils.fromWei(amountOutWithSlippage, 'ether')} DAI`);
         } catch (error) {
             console.error(`Error fetching quote with fee tier ${fee}:`, error);
         }
@@ -53,3 +56,4 @@ const main = async () => {
 };
 
 main().catch(console.error);
+
