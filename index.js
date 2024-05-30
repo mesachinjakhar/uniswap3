@@ -50,7 +50,7 @@ async function getSwapPrice() {
       slot0.sqrtPriceX96.toString(),
       liquidity.toString(),
       slot0.tick,
-      new TickListDataProvider(tickData) // Provide tick data to the pool
+      new TickListDataProvider(tickData, 60) // Provide tick data to the pool
     );
 
     console.log(`Pool: ${JSON.stringify(pool)}`);
@@ -95,14 +95,19 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 
 // Helper function to fetch tick data
 async function fetchTickData(poolContract) {
-  const tickData = {};
+  const tickData = [];
   for (let tick = -887272; tick <= 887272; tick += 60) { // Modify the range and step as needed
-    const [tickIndex, , , , , ,] = await poolContract.ticks(tick);
-    tickData[tickIndex] = true; // Store the tick index
+    const tickInfo = await poolContract.ticks(tick);
+    tickData.push({
+      tick: tick,
+      liquidityGross: tickInfo[2].toString(),
+      liquidityNet: tickInfo[3].toString(),
+      feeGrowthOutside0X128: tickInfo[4].toString(),
+      feeGrowthOutside1X128: tickInfo[5].toString(),
+    });
   }
   return tickData;
 }
 
 getSwapPrice().catch(console.error);
-
 
