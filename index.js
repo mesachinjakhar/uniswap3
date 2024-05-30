@@ -1,40 +1,43 @@
-const Web3 = require('web3');
-const { Token } = require('@uniswap/sdk-core');
-const { abi: QuoterABI } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
+const { ethers } = require('ethers');
+const { ChainId, Token, WETH, Fetcher, Route, Trade, TradeType, TokenAmount, Percent } = require('@uniswap/sdk');
+const { AlphaRouter } = require('@uniswap/smart-order-router');
+require('dotenv').config();
 
-const config = {
-    DEFAULT_API_PORT: 5001,
-    DEFAULT_NODE_URL: "ws://127.0.0.1:8545",
-    UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-    UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
-    WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-    CUSTOM_AMOUNT: "1000000000000000000" // 1 ETH in wei
-};
-
-const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
+const provider = new ethers.providers.JsonRpcProvider(process.config.DEFAULT_NODE_URL);
 
 const main = async () => {
-    const WETH = new Token(1, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ether');
-    const DAI = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
+    const chainId = ChainId.MAINNET;
 
-    const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
+    const WETH_TOKEN = WETH[chainId];
+    const DAI = new Token(
+        chainId,
+        '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI address
+        18,
+        'DAI',
+        'Dai Stablecoin'
+    );
 
-    const amountIn = config.CUSTOM_AMOUNT;
+    const router = new AlphaRouter({
+        chainId: chainId,
+        provider: provider
+    });
 
-    try {
-        const amountOut = await quoter.methods.quoteExactInputSingle(
-            config.WETH_ADDRESS_MAINNET,
-            DAI.address,
-            3000, // Pool fee
-            amountIn,
-            0
-        ).call();
+    const amountIn = ethers.utils.parseUnits('1', 18); // 1 ETH in wei
 
-        console.log(`Price for swapping 1 ETH to DAI: ${web3.utils.fromWei(amountOut, 'ether')} DAI`);
-    } catch (error) {
-        console.error('Error fetching quote:', error);
-    }
+    const route = await router.route(
+        new TokenAmount(WETH_TOKEN, amountIn.toString()),
+        DAI,
+        TradeType.EXACT_INPUT,
+        {
+            recipient: '0x0000000000000000000000000000000000000000', // Replace with your wallet address
+            slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
+            deadline: Math.floor(Date.now() / 1000 + 60 * 20) // 20 minutes from the current Unix time
+        }
+    );
+
+    console.log(`Best price for swapping 1 ETH to DAI: ${route.quote.toExact()} DAI`);
 };
 
 main().catch(console.error);
+
 
