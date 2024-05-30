@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const fs = require('fs');
-const { Token, WETH9, TradeType, Percent, CurrencyAmount } = require('@uniswap/sdk-core');
+const { Token, WETH9, TradeType, Percent, CurrencyAmount, Route, Trade } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
@@ -16,15 +16,17 @@ const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI mainnet
 const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
 async function getSwapPrice() {
-    // Fetch the token data
+    // Define chainId
     const chainId = 1; // Mainnet
+
+    // Create instances of the WETH and DAI tokens
     const WETH = new Token(chainId, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
     const DAI = new Token(chainId, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
 
     // Initialize the AlphaRouter
     const router = new AlphaRouter({ chainId, provider });
 
-    // Create the amount of 1 WETH
+    // Define the amount of WETH to swap (1 WETH)
     const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString()));
 
     // Generate the route using the AlphaRouter
@@ -50,4 +52,3 @@ async function getSwapPrice() {
 }
 
 getSwapPrice();
-
