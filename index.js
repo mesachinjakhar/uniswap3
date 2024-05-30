@@ -3,7 +3,7 @@ const config = require('./config.json');
 
 // ABI for the Quoter contract's quoteExactInputSingle method
 const QUOTER_ABI = [
-  "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external view returns (uint256 amountOut)"
+  "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
 ];
 
 async function getSwapPrice() {
@@ -20,17 +20,20 @@ async function getSwapPrice() {
   // Instantiate the Quoter contract
   const quoter = new ethers.Contract(config.UNISWAPV3_QUOTER_ADDRESS, QUOTER_ABI, provider);
 
-  // Get the quoted amount out
-  const amountOut = await quoter.callStatic.quoteExactInputSingle(
-    WETH_ADDRESS,
-    DAI_ADDRESS,
-    POOL_FEE,
-    AMOUNT_IN,
-    SQRT_PRICE_LIMIT_X96
-  );
+  try {
+    // Get the quoted amount out
+    const amountOut = await quoter.callStatic.quoteExactInputSingle(
+      WETH_ADDRESS,
+      DAI_ADDRESS,
+      POOL_FEE,
+      AMOUNT_IN,
+      SQRT_PRICE_LIMIT_X96
+    );
 
-  console.log(`Swap 1 WETH to DAI: ${ethers.utils.formatUnits(amountOut, 18)} DAI`);
+    console.log(`Swap 1 WETH to DAI: ${ethers.utils.formatUnits(amountOut, 18)} DAI`);
+  } catch (error) {
+    console.error("Error fetching swap price:", error);
+  }
 }
 
 getSwapPrice().catch(console.error);
-
