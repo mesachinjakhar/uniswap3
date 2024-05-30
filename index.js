@@ -11,7 +11,7 @@ const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
 const quoterContract = new web3.eth.Contract(quoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
-const diaTokenAddress = '0x84cC02D8Db94aD7aAc83B512DEcF4F5CF4488B4F'; // DIA token address
+const diaTokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DIA token address
 let latestSwapPrice = null;
 
 const app = express();
