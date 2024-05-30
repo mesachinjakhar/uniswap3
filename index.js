@@ -18,7 +18,7 @@ const main = async () => {
     const amountIn = ethers.utils.parseUnits('1', 18); // 1 ETH in wei
 
     const options = {
-      slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
+      slippageTolerance: new Percent('0.05', '100'), // Adjusted slippage tolerance
       deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
       type: 1 // Specify the swap type (SwapType.EXACT_INPUT)
     };
@@ -41,3 +41,4 @@ const main = async () => {
 };
 
 main().catch(console.error);
+
