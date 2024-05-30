@@ -44,7 +44,7 @@ async function fetchSwapPrice(tokenAddress) {
     ).call();
     return web3.utils.fromWei(amountOut, 'ether');
   } catch (error) {
-    console.error(`Error fetching swap price for token ${tokenAddress}:`, error);
+    console.error(`Error fetching swap price for token ${tokenAddress}:`, error.message);
     return null;
   }
 }
@@ -61,13 +61,14 @@ async function main() {
 
   console.log('Fetching swap prices for tokens...');
   for (const token of uniqueTokens) {
+    console.log(`Fetching price for token: ${token}`);
     const price = await fetchSwapPrice(token);
     if (price) {
-      console.log(`1 ETH -> ${price} ${token}`);
+      console.log(`1 ETH -> ${price} for token ${token}`);
     }
   }
 }
 
 main().catch(error => {
-  console.error('Error in main execution:', error);
+  console.error('Error in main execution:', error.message);
 });
