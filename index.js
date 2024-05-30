@@ -35,12 +35,15 @@ async function fetchSwapPrice() {
   try {
     const slot0 = await poolContract.methods.slot0().call({ gas: 500000 });
     const sqrtPriceX96 = slot0.sqrtPriceX96;
-    const price = (sqrtPriceX96 / 2 ** 96) ** 2;
+
+    // Calculate price from sqrtPriceX96
+    const price = (sqrtPriceX96 ** 2) / (2 ** 192);
     const currentPrice = parseFloat(price.toFixed(18));
+    
     console.log(`Current ETH/DAI price: ${currentPrice}`);
     return currentPrice;
   } catch (error) {
-    console.error('Error fetching swap price:', error.message);
+    console.error('Error fetching swap price:', error);
     return null;
   }
 }
@@ -65,5 +68,5 @@ web3.eth.subscribe('newBlockHeaders', async (error, result) => {
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  updateSwapPrice(); // Initial price fetch
+  updateSwapPrice();
 });
