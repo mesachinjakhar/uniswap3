@@ -33,6 +33,9 @@ async function getSwapPrice() {
         const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString()));
         console.log(amountIn);
 
+        // Log TradeType
+        console.log('TradeType.EXACT_INPUT:', TradeType.EXACT_INPUT);
+
         // Generate the route using the AlphaRouter
         const route = await router.route(
             amountIn,
@@ -59,4 +62,3 @@ async function getSwapPrice() {
 }
 
 getSwapPrice();
-
