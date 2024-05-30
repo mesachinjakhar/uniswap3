@@ -17,14 +17,17 @@ const main = async () => {
 
     const amountIn = ethers.utils.parseUnits('1', 18); // 1 ETH in wei
 
+    const options = {
+      slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
+      deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
+      type: 1 // Specify the swap type (SwapType.EXACT_INPUT)
+    };
+
     const route = await router.route(
       CurrencyAmount.fromRawAmount(WETH, amountIn.toString()),
       DAI,
       TradeType.EXACT_INPUT,
-      {
-        slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
-        deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
-      }
+      options
     );
 
     if (route) {
@@ -38,5 +41,3 @@ const main = async () => {
 };
 
 main().catch(console.error);
-
-
