@@ -18,7 +18,7 @@ const WETH = new Token(1, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ethe
 const DAI = new Token(1, config.DAI_ADDRESS_MAINNET, 18, 'DAI', 'Dai Stablecoin');
 const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
 const amountIn = config.CUSTOM_AMOUNT;
-const poolFees = [500, 4000, 10000]; // 0.05%, 0.30%, 1% fee tiers
+const poolFees = [500, 3000, 10000]; // 0.05%, 0.30%, 1% fee tiers
 
 const fetchPrices = async () => {
     const prices = [];
