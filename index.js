@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const fs = require('fs');
-const { Token, WETH9, TradeType, Percent, CurrencyAmount, Trade } = require('@uniswap/sdk-core');
+const { Token, WETH9, TradeType, Percent, CurrencyAmount } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
@@ -50,5 +50,4 @@ async function getSwapPrice() {
 }
 
 getSwapPrice();
-
 
