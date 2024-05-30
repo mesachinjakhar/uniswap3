@@ -1,7 +1,7 @@
 const { ethers } = require('ethers');
 const { AlphaRouter, ChainId } = require('@uniswap/smart-order-router');
 const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { fromReadableAmount } = require('./src/libs/conversion');
+const { fromReadableAmount } = require('./conversion');
 
 // Example configuration
 const CurrentConfig = {
