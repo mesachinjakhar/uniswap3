@@ -21,6 +21,10 @@ async function getSwapPrice() {
     // Connect to local Erigon node
     const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
+    // Ensure the provider is synced with the latest block
+    const latestBlock = await provider.getBlockNumber();
+    console.log(`Latest block number: ${latestBlock}`);
+
     // Create a contract instance for the Quoter
     const quoterContract = new ethers.Contract(UNISWAPV3_QUOTER_ADDRESS, quoterAbi, provider);
 
