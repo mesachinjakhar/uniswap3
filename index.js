@@ -18,44 +18,40 @@ const WETH = new Token(1, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ethe
 const DAI = new Token(1, config.DAI_ADDRESS_MAINNET, 18, 'DAI', 'Dai Stablecoin');
 const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
 const amountIn = config.CUSTOM_AMOUNT;
-
-// Simulate a 0% fee by using the 0.05% fee pool and adjusting the output
-const simulatedZeroFeeTier = 500; // 0.05% pool fee tier
+const poolFees = [500, 4000, 10000]; // 0.05%, 0.30%, 1% fee tiers
 
 const fetchPrices = async () => {
-    try {
-        const amountOutWithFee = await quoter.methods.quoteExactInputSingle(
-            config.WETH_ADDRESS_MAINNET,
-            DAI.address,
-            simulatedZeroFeeTier, // Using the 0.05% fee pool to simulate
-            amountIn,
-            0
-        ).call();
-
-        const amountOutWithoutFee = web3.utils.fromWei(amountOutWithFee, 'ether');
-
-        // Calculate the fee amount (0.05% of the output)
-        const feeAmount = (0.05 / 100) * amountOutWithoutFee;
-
-        // Simulate the amount out for a 0% fee by adding the fee back
-        const amountOutZeroFee = parseFloat(amountOutWithoutFee) + feeAmount;
-
-        console.log(`Simulated price for swapping 1 ETH to DAI with 0% fee: ${amountOutZeroFee.toFixed(6)} DAI`);
-
-    } catch (error) {
-        console.error('Error fetching quote:', error);
+    const prices = [];
+    for (const fee of poolFees) {
+        try {
+            const amountOut = await quoter.methods.quoteExactInputSingle(
+                config.WETH_ADDRESS_MAINNET,
+                DAI.address,
+                fee, // Pool fee
+                amountIn,
+                0
+            ).call();
+            const price = web3.utils.fromWei(amountOut, 'ether');
+            prices.push({ fee, price });
+            console.log(`Price for swapping 1 ETH to DAI with ${fee / 10000}% fee: ${price} DAI`);
+        } catch (error) {
+            console.error(`Error fetching quote with fee tier ${fee}:`, error);
+        }
     }
+    return prices;
 };
 
 const main = async () => {
     // Initial price fetch
-    await fetchPrices();
+    const prices = await fetchPrices();
+    console.log('Initial prices:', prices);
 
     // Subscribe to new block headers
     web3.eth.subscribe('newBlockHeaders', async (error, result) => {
         if (!error) {
             console.log(`New block detected: ${result.number}`);
-            await fetchPrices();
+            const updatedPrices = await fetchPrices();
+            console.log('Updated prices:', updatedPrices);
         } else {
             console.error('Error subscribing to new block headers:', error);
         }
@@ -63,4 +59,5 @@ const main = async () => {
 };
 
 main().catch(console.error);
+
 
