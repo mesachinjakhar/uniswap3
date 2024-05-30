@@ -1,7 +1,6 @@
 const Web3 = require('web3');
 const { ethers } = require('ethers');
-const uniswapV3FactoryArtifact = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json');
-const uniswapV3QuoterArtifact = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json');
+const { abi, bytecode } = require('uniswap-v3-core/artifacts/contracts/UniswapV3Swap.sol/UniswapV3Swap.json');
 
 // Initialize Web3.js
 const web3 = new Web3('http://127.0.0.1:8545');
