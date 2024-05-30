@@ -20,7 +20,7 @@ const dai = await Fetcher.fetchTokenData(ChainId.MAINNET, daiAddress, web3Provid
 const weth = await Fetcher.fetchTokenData(ChainId.MAINNET, wethAddress, web3Provider);
 
     // Fetch pair data for DAI/WETH
-    const pair = await Fetcher.fetchPairData(dai, weth, web3);
+const pair = await Fetcher.fetchPairData(dai, weth, web3Provider);
     
     // Fetch route
     const route = new Route([pair], weth);
