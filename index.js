@@ -6,7 +6,7 @@ const chainId = 1; // Mainnet
 const tokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI token address
 
 async function getSwapPrice(tokenIn, tokenOut, amount) {
-  const provider = new ethers.providers.JsonRpcProvider('https:://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048');
+  const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
 
   const tokenInInstance = new Token(chainId, tokenIn, 18);
   const tokenOutInstance = new Token(chainId, tokenOut, 18);
@@ -33,11 +33,10 @@ async function getSwapPrice(tokenIn, tokenOut, amount) {
 }
 
 async function getPoolAddress(token0, token1, provider) {
-  const poolAddressProvider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
   const poolAddressFinder = new ethers.Contract(
     '0x1F98431c8aD98523631AE4a59f267346ea31F984',
     ['function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)'],
-    poolAddressProvider
+    provider
   );
   const poolAddress = await poolAddressFinder.getPool(token0.address, token1.address, 3000);
   return poolAddress;
