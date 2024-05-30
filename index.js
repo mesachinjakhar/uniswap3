@@ -1,42 +1,60 @@
-const Web3 = require('web3');
-const { abi: QuoterABI } = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json');
+const { ethers } = require('@ethersproject/providers');
+const { Contract } = require('@ethersproject/contracts');
+const { UniswapV3Factory, Quoter } = require('@uniswap/v3-periphery');
 
-const config = {
-  DEFAULT_API_PORT: 5001,
-  DEFAULT_NODE_URL: "ws://127.0.0.1:8545",
-  UNISWAPV3_FACTORY_ADDRESS: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
-  UNISWAPV3_QUOTER_ADDRESS: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
-  WETH_ADDRESS_MAINNET: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-  CUSTOM_AMOUNT: "500000000000000000"
-};
+// Replace with your provider URL (likely "ws://127.0.0.1:8545")
+const provider = new ethers.providers.JsonRpcProvider(process.env.NODE_URL);
 
-const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
-const quoter = new web3.eth.Contract(QuoterABI, config.UNISWAPV3_QUOTER_ADDRESS);
+// Load addresses from config.json (assuming it's in the same directory)
+const configData = require('./config.json');
 
-async function fetchUniswapV3Prices() {
-  const tokenIn = config.WETH_ADDRESS_MAINNET;
-  const tokenOut = "0x84ca8bc7997272c7cfb4d0cd3d55cd942b3fe1d5"; // DIA token address (checksum-less)
-  const amountIn = config.CUSTOM_AMOUNT;
+const factoryAddress = configData.UNISWAPV3_FACTORY_ADDRESS;
+const quoterAddress = configData.UNISWAPV3_QUOTER_ADDRESS;
+const wethAddress = configData.WETH_ADDRESS_MAINNET;
 
-  try {
-    const quoteResult = await quoter.methods.quoteExactInputSingle(
-      tokenIn,
-      tokenOut,
-      3000, // fee tier
-      amountIn,
-      0 // sqrtPriceLimitX96
-    ).call();
+// Define the DIA token address (replace with actual DIA address)
+const diaAddress = '0x...'; // Replace with the actual DIA contract address
 
-    const amountOut = quoteResult.amountOut;
-    const ethAmount = web3.utils.fromWei(amountIn, 'ether');
-    const diaAmount = web3.utils.fromWei(amountOut, 'ether');
+async function main() {
+  const signer = provider.getSigner(); // (Optional) If using a signing provider
 
-    console.log(`Swapping 1 ETH for DIA:
-    ETH Amount: ${ethAmount}
-    DIA Amount: ${diaAmount}`);
-  } catch (error) {
-    console.error('Error fetching Uniswap V3 prices:', error);
-  }
+  // Create Uniswap v3 Factory and Quoter contracts
+  const factory = new UniswapV3Factory(factoryAddress, provider);
+  const quoter = new Quoter(quoterAddress, provider);
+
+  // Get ETH and DIA token information
+  const eth = new Contract(wethAddress, ERC20_ABI, provider);
+  const dia = new Contract(diaAddress, ERC20_ABI, provider);
+
+  // Define amount of ETH to swap (1 ETH in wei)
+  const ethAmount = ethers.utils.parseUnits('1', 18);  // 1 ETH in wei
+
+  // Get the pool for the ETH-DIA pair
+  const pool = await factory.getPool(wethAddress, diaAddress, 3000); // Fee tier (adjust if needed)
+
+  // Get the quote for swapping ETH to DIA
+  const quote = await quoter.callStatic(
+    quoter.quoteExactInputSingle(
+      ethAddress,
+      diaAddress,
+      3000, // Fee tier
+      ethAmount,
+      false // Use the best pool along the route (optional, set to true for specific paths)
+    )
+  );
+
+  // Convert raw quote data to human-readable format
+  const amountOut = parseFloat(ethers.utils.formatUnits(quote.amountOut, dia.decimals));
+
+  console.log(`Swapping 1 ETH for approximately ${amountOut} DIA`);
 }
 
-fetchUniswapV3Prices();
+// Replace with actual ERC20 ABI (you can find it online)
+const ERC20_ABI = [
+  // ... ERC20 token ABI definition (functions like balanceOf, transfer, etc.)
+];
+
+// Run the main function
+main().catch((error) => {
+  console.error(error);
+});
