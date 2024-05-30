@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
-const { Pool, Route, Trade, TradeType, Token, CurrencyAmount } = require('@uniswap/v3-sdk');
-const { Percent } = require('@uniswap/sdk-core');
+const { Pool, Route, Trade, TradeType, Percent } = require('@uniswap/v3-sdk');
+const { Token, CurrencyAmount } = require('@uniswap/sdk-core');
 
 // Load config
 const config = {
@@ -57,3 +57,4 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
+
