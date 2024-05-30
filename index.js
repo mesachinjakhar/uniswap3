@@ -17,5 +17,10 @@ const main = async () => {
 
     const trade = new Trade(route, new TokenAmount(WETH, '1000000000000000000'), TradeType.EXACT_INPUT);
 
-    console.log(`Bes
+    console.log(`Best price for swapping 1 ETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
 
+main().catch(console.error);
