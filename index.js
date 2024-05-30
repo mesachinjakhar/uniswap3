@@ -1,241 +1,71 @@
-const fs = require('fs');
-const config = require('./config.json');
+const { Token, TradeType, TokenAmount, Percent, Route, Fetcher } = require('@uniswap/sdk');
+const { abi: IUniswapV3PoolABI } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json');
+const ethers = require('ethers');
 
-const mathjs = require('mathjs');
-const math = mathjs.create(mathjs.all);
-math.config({ number: 'BigNumber' });
+const chainId = 1; // Mainnet
+const tokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI token address
 
-const Web3 = require('web3');
-const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
-const provider = new Web3.providers.WebsocketProvider(web3Url, {
-    clientConfig: {
-        maxReceivedFrameSize: 10000000000,
-        maxReceivedMessageSize: 10000000000,
-    }
-});
-const web3 = new Web3(provider);
+async function getSwapPrice(tokenIn, tokenOut, amount) {
+  const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545'); // Replace with your local Erigon node URL
 
-provider.on('connect', function () {
-    console.log('WebSocket Connected');
-});
+  const tokenInInstance = new Token(chainId, tokenIn, 18);
+  const tokenOutInstance = new Token(chainId, tokenOut, 18);
 
-provider.on('error', function (e) {
-    console.error('WebSocket Error', e);
-    process.exit(1);
-});
+  const pair = await Fetcher.fetchPairData(tokenInInstance, tokenOutInstance, provider);
 
-provider.on('end', function (e) {
-    console.error('WebSocket Connection Closed', e);
-    process.exit(1);
-});
+  const route = new Route([pair], tokenInInstance);
 
-const web3UrlInfura = `wss://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048`;
-const web3Infura = new Web3(new Web3.providers.WebsocketProvider(web3UrlInfura, {
-    clientConfig: {
-        maxReceivedFrameSize: 10000000000,
-        maxReceivedMessageSize: 10000000000,
-    }
-}));
+  const trade = new Trade(
+    route,
+    new TokenAmount(tokenInInstance, amount),
+    TradeType.EXACT_INPUT
+  );
 
-const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
-const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
-const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
-const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
+  const slippageTolerance = new Percent('50', '10000'); // 0.5% slippage tolerance
+  const amountOutMin = trade.minimumAmountOut(slippageTolerance).raw;
 
-const factory = new web3Infura.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
-const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
+  const path = [tokenInInstance.address, tokenOutInstance.address];
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes
+  const value = trade.inputAmount.raw;
+  const gasPrice = await provider.getGasPrice();
+  const accounts = await provider.listAccounts();
 
-const ONE_WETH = ethers.utils.parseUnits('1', 18).toString();
+  const uniswapContract = new ethers.Contract(pair.liquidityToken.address, IUniswapV3PoolABI, provider);
+  const methodParameters = {
+    path,
+    recipient: accounts[0],
+    deadline,
+    amountIn: value,
+    amountOutMinimum: amountOutMin.toString(),
+  };
 
-function isWeth(address) {
-    return config.WETH_ADDRESS_MAINNET === address;
+  const data = uniswapContract.interface.encodeFunctionData('swapExactTokensForTokens', [
+    methodParameters.amountIn,
+    methodParameters.amountOutMinimum,
+    methodParameters.path,
+    methodParameters.recipient,
+    methodParameters.deadline,
+  ]);
+
+  const tx = {
+    data,
+    to: pair.liquidityToken.address,
+    value: value,
+    gasPrice: gasPrice,
+  };
+
+  const estimation = await provider.estimateGas(tx);
+  const gasLimit = estimation.toNumber() * 2; // Double the gas limit
+
+  const swapPriceOut = trade.outputAmount.raw.toString();
+  const swapPriceInMax = trade.maximumAmountIn(slippageTolerance).raw.toString();
+
+  console.log(`
+    Swap Price (in):  ${ethers.utils.formatUnits(value, 'ether')} ETH
+    Swap Price (out): ${ethers.utils.formatUnits(swapPriceOut, 'ether')} ${tokenOutInstance.symbol}
+    Swap Price (in max): ${ethers.utils.formatUnits(swapPriceInMax, 'ether')} ETH
+    Gas Limit: ${gasLimit}
+  `);
 }
 
-async function getTokenInfo(address) {
-    const token = new web3.eth.Contract(IERC20MetadataAbi, address);
-    const symbol = await token.methods.symbol().call().catch(() => '');
-    const name = await token.methods.name().call().catch(() => '');
-    const decimals = await token.methods.decimals().call().catch(() => '');
-
-    return { symbol, name, decimals };
-}
-
-const state = {
-    tokens: {},
-    pools: {},
-    prices: {},
-    customAmountInWei: config.CUSTOM_AMOUNT
-};
-
-async function updatePoolPrices(pool) {
-    let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
-
-    const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
-        config.WETH_ADDRESS_MAINNET,
-        otherToken,
-        pool.fee,
-        ONE_WETH,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(ethToTokenPrice).isZero()) {
-        return;
-    }
-
-    const tokenToEthPrice = await quoter.methods.quoteExactOutputSingle(
-        otherToken,
-        config.WETH_ADDRESS_MAINNET,
-        pool.fee,
-        ONE_WETH,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(tokenToEthPrice).isZero()) {
-        return;
-    }
-
-    if (!state.prices[otherToken]) {
-        state.prices[otherToken] = {
-            address: otherToken,
-            ...state.tokens[otherToken]
-        };
-    }
-
-    state.prices[otherToken] = {
-        ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString()
-    };
-}
-
-async function main() {
-    const latestBlock = await web3.eth.getBlockNumber();
-    const fromBlock = 0;
-    const toBlock = latestBlock;
-
-    const events = await getPoolEventsInRange(fromBlock, toBlock);
-
-    for (let event of events) {
-        await handleEvent(event);
-    }
-
-    factory.events.PoolCreated({
-        fromBlock: latestBlock + 1,
-    })
-    .on("data", async function (event) {
-        await handleEvent(event);
-    })
-    .on('error', function (error, receipt) {
-        console.log('pool created subscription error', error, receipt);
-        process.exit(1);
-    });
-
-    web3.eth.subscribe('newBlockHeaders')
-    .on("data", async function (blockHeader) {
-        console.log('New Block:', blockHeader.number);
-        await updateAllPrices();
-    })
-    .on('error', console.error);
-}
-
-async function handleEvent(event) {
-    const isToken0Weth = isWeth(event.returnValues.token0);
-    const isToken1Weth = isWeth(event.returnValues.token1);
-
-    if (!isToken0Weth && !isToken1Weth) {
-        return;
-    }
-
-    if (!state.tokens[event.returnValues.token0]) {
-        const tokenInfo = await getTokenInfo(event.returnValues.token0);
-        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-            return;
-        }
-        state.tokens[event.returnValues.token0] = tokenInfo;
-    }
-
-    if (!state.tokens[event.returnValues.token1]) {
-        const tokenInfo = await getTokenInfo(event.returnValues.token1);
-        if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
-            return;
-        }
-        state.tokens[event.returnValues.token1] = tokenInfo;
-    }
-
-    state.pools[event.returnValues.pool] = event.returnValues;
-
-    await updatePoolPrices(state.pools[event.returnValues.pool]);
-}
-
-async function updateAllPrices() {
-    for (let poolId in state.pools) {
-        await updatePoolPrices(state.pools[poolId]);
-    }
-}
-
-main();
-
-const express = require('express');
-const app = express();
-
-app.use(function (req, res, next) {
-    console.log(new Date(), req.connection.remoteAddress, req.method, req.url);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    next();
-});
-
-
-app.get('/uniswap3', function (req, res) {
-    res.send(Object.keys(state.prices).map((key) => state.prices[key]));
-});
-
-app.get('/setEthAmount', async function (req, res) {
-    if (!req.query || !req.query.amount) {
-        return res.status(400).send({
-            error: 'Parameter "amount" is required.'
-        });
-    }
-
-    try {
-        const inWei = ethers.utils.parseUnits(req.query.amount.toString(), 18).toString();
-        state.customAmountInWei = inWei;
-        config.CUSTOM_AMOUNT = inWei;
-
-        fs.writeFileSync('./config.json', JSON.stringify(config, null, 2), function (err) {
-            if (err) console.log(err);
-        });
-
-        res.send({
-            amount: config.CUSTOM_AMOUNT
-        });
-
-        process.exit(1);
-    } catch (e) {
-        return res.status(400).send({
-            error: 'Invalid value for parameter "amount". A string in ETH units is required.',
-        });
-    }
-});
-
-const port = process.env.NODE_PORT || config.DEFAULT_API_PORT;
-app.listen(port, () => console.log(`Listening on port ${port}`));
-
-function exitHandler(signal) {
-    console.log(`Received signal: ${signal}`);
-    process.exit();
-}
-
-// Catches ctrl+c event
-process.on('SIGINT', exitHandler);
-
-// Catches "kill pid"
-process.on('SIGUSR1', exitHandler);
-process.on('SIGUSR2', exitHandler);
-
-// Catches uncaught exceptions
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    exitHandler('uncaughtException');
-});
+getSwapPrice('0x0000000000000000000000000000000000000000', tokenAddress, ethers.utils.parseUnits('1', 'ether'));
