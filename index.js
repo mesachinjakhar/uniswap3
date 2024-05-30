@@ -1,15 +1,23 @@
 const express = require('express');
 const Web3 = require('web3');
-const { abi: poolAbi } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json');
 const fs = require('fs');
+const path = require('path');
 
 // Load configuration
 const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 const web3 = new Web3(new Web3.providers.WebsocketProvider(config.DEFAULT_NODE_URL));
 const daiTokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI token address
 
+// Load the Pool ABI
+const poolAbiPath = path.join(__dirname, 'node_modules', '@uniswap', 'v3-core', 'artifacts', 'contracts', 'UniswapV3Pool.sol', 'UniswapV3Pool.json');
+const poolAbi = JSON.parse(fs.readFileSync(poolAbiPath)).abi;
+
 // ETH/DAI 0.3% fee pool address on mainnet
 const poolAddress = '0xC2E9f25Be817b27912A3ABfE1f9bCDB16c18Bf12';
+
+// Debugging: Log the pool address and ABI
+console.log(`Using pool address: ${poolAddress}`);
+console.log(`Using pool ABI: ${JSON.stringify(poolAbi, null, 2)}`);
 
 const poolContract = new web3.eth.Contract(poolAbi, poolAddress);
 
