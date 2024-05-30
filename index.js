@@ -33,7 +33,7 @@ const port = config.DEFAULT_API_PORT;
 
 async function fetchSwapPrice() {
   try {
-    const slot0 = await poolContract.methods.slot0().call();
+    const slot0 = await poolContract.methods.slot0().call({ gas: 500000 });
     const sqrtPriceX96 = slot0.sqrtPriceX96;
     const price = (sqrtPriceX96 / 2 ** 96) ** 2;
     const currentPrice = parseFloat(price.toFixed(18));
@@ -65,5 +65,4 @@ web3.eth.subscribe('newBlockHeaders', async (error, result) => {
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  updateSwapPrice(); // Initial price fetch
-});
+  updateSwapPrice
