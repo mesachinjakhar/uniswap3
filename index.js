@@ -6,7 +6,7 @@ const chainId = 1; // Mainnet
 const tokenAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI token address
 
 async function getSwapPrice(tokenIn, tokenOut, amount) {
-  const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+  const provider = new ethers.providers.JsonRpcProvider('https:://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048');
 
   const tokenInInstance = new Token(chainId, tokenIn, 18);
   const tokenOutInstance = new Token(chainId, tokenOut, 18);
