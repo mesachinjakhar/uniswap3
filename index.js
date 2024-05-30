@@ -98,6 +98,7 @@ async function fetchTickData(poolContract) {
   const tickData = [];
   for (let tick = -887272; tick <= 887272; tick += 60) { // Modify the range and step as needed
     const tickInfo = await poolContract.ticks(tick);
+    console.log(`Tick ${tick}:`, tickInfo); // Add this line to log tick data
     // Ensure that tickInfo contains valid data
     if (tickInfo[0] !== 0 && tickInfo[1] !== 0 && tickInfo[2] !== 0 && tickInfo[3] !== 0 && tickInfo[4] !== 0 && tickInfo[5] !== 0) {
       tickData.push({
@@ -114,6 +115,7 @@ async function fetchTickData(poolContract) {
   }
   return tickData;
 }
+
 
 
 getSwapPrice().catch(console.error);
