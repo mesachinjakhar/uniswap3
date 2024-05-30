@@ -1,49 +1,53 @@
 const { ethers } = require('ethers');
+const { ChainId, Token, TradeType, Percent } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/smart-order-router');
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { fromReadableAmount } = require('./conversion');
-const { ChainId } = require('@uniswap/sdk-core');
 
+require('dotenv').config();
 
-// Example configuration
-const CurrentConfig = {
-  tokens: {
-    in: new Token(ChainId.MAINNET, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18, 'WETH', 'Wrapped Ether'),
-    out: new Token(ChainId.MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin'),
-    amountIn: 1 // 1 ETH
-  }
-};
+// Define token addresses for ETH and DAI on the respective chain (MAINNET)
+const ETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH address
+const DAI_ADDRESS = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
 
-// Create provider for your local Erigon node
-const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+// Use local Erigon node URL
+const provider = new ethers.providers.JsonRpcProvider(process.env.ERIGON_URL);
 
-// Create router instance
-const router = new AlphaRouter({
-  chainId: ChainId.MAINNET,
-  provider,
-});
-
-// Convert input amount to raw token amount
-const rawTokenAmountIn = fromReadableAmount(CurrentConfig.tokens.amountIn, CurrentConfig.tokens.in.decimals);
-
-// Route the swap and get price
 const main = async () => {
-  try {
-    const route = await router.route(
-      CurrencyAmount.fromRawAmount(CurrentConfig.tokens.in, rawTokenAmountIn),
-      CurrentConfig.tokens.out,
-      TradeType.EXACT_INPUT
-    );
+    try {
+        // Create token instances for ETH and DAI
+        const WETH = new Token(ChainId.MAINNET, ETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
+        const DAI = new Token(ChainId.MAINNET, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
 
-    // Check if route is valid
-    if (route && route.midPrice) {
-      console.log(`1 ETH = ${route.midPrice.toSignificant(6)} ${CurrentConfig.tokens.out.symbol}`);
-    } else {
-      console.log('Route not found or invalid.');
+        // Create router instance
+        const router = new AlphaRouter({ chainId: ChainId.MAINNET, provider });
+
+        // Define amount of 1 ETH in wei
+        const amountIn = ethers.utils.parseEther('1');
+
+        // Define swap options
+        const options = {
+            slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
+            deadline: Math.floor(Date.now() / 1000 + 60 * 20), // 20 minutes from now
+        };
+
+        // Route the swap
+        const route = await router.route(
+            { token: WETH, amount: amountIn },
+            DAI,
+            TradeType.EXACT_INPUT,
+            options
+        );
+
+        if (route) {
+            // Get the best quote
+            const bestQuote = route.bestQuote;
+            console.log(`Best price for swapping 1 ETH to DAI: ${bestQuote.toSignificant(6)} DAI`);
+        } else {
+            console.log('Route not found or invalid.');
+        }
+    } catch (error) {
+        console.error('Error:', error);
     }
-  } catch (error) {
-    console.error('Error:', error);
-  }
 };
 
 main().catch(console.error);
+
