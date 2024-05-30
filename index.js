@@ -13,7 +13,12 @@ const poolAbiPath = path.join(__dirname, 'node_modules', '@uniswap', 'v3-core', 
 const poolAbi = JSON.parse(fs.readFileSync(poolAbiPath)).abi;
 
 // ETH/DAI 0.3% fee pool address on mainnet
-const poolAddress = '0xC2E9f25Be817b27912A3ABfE1f9bCDB16c18Bf12';
+let poolAddress = '0xC2E9f25Be817b27912A3ABfE1f9bCDB16c18Bf12';
+
+// Validate and correct address checksum
+if (!web3.utils.isAddress(poolAddress) || !web3.utils.checkAddressChecksum(poolAddress)) {
+  poolAddress = web3.utils.toChecksumAddress(poolAddress);
+}
 
 // Debugging: Log the pool address and ABI
 console.log(`Using pool address: ${poolAddress}`);
