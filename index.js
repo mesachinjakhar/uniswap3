@@ -1,37 +1,79 @@
-const { JsonRpcProvider } = require('@ethersproject/providers');
-const { Route, Trade, TokenAmount, TradeType, Percent, Fetcher } = require('@uniswap/sdk');
-const { AddressZero } = require('@ethersproject/constants');
-const { BigNumber } = require('@ethersproject/bignumber');
+const { ethers } = require('ethers');
+const { computePoolAddress } = require('@uniswap/v3-sdk');
+const { Token } = require('@uniswap/sdk-core');
+const QuoterABI = require('@uniswap/v3-periphery/artifacts/contracts/lens/Quoter.sol/Quoter.json').abi;
+const IUniswapV3PoolABI = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json').abi;
 
-// Instantiate your Erigon node provider
-const provider = new JsonRpcProvider('http://localhost:8545'); // Assuming your Erigon node is running on localhost:8545
+// Define token constants
+const WETH_TOKEN = new Token(1, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18, 'WETH', 'Wrapped Ether');
+const USDC_TOKEN = new Token(1, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 6, 'USDC', 'USD//C');
 
-// Hardcoded token addresses
-const DAI_ADDRESS = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
-const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+// Configuration
+const config = {
+  rpc: {
+    local: 'http://localhost:8545',
+    mainnet: 'https://mainnet.infura.io/v3/0ac57a06f2994538829c14745750d721',
+  },
+  tokens: {
+    in: USDC_TOKEN,
+    amountIn: 1000,
+    out: WETH_TOKEN,
+    poolFee: 500,
+  },
+  POOL_FACTORY_CONTRACT_ADDRESS: '0x1F98431c8aD98523631AE4a59f267346ea31F984', // Uniswap V3 factory address
+  QUOTER_CONTRACT_ADDRESS: '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6', // Uniswap V3 Quoter address
+};
 
-async function main() {
-    try {
-        // Fetch token information
-        const DAI = await Fetcher.fetchTokenData(1, DAI_ADDRESS, provider);
-        const WETH = await Fetcher.fetchTokenData(1, WETH_ADDRESS, provider);
+async function getQuote() {
+  try {
+    // Connect to provider
+    const provider = new ethers.providers.JsonRpcProvider(config.rpc.local);
 
-        // Create the trade object for 1 ETH to DAI
-        const pair = await Fetcher.fetchPairData(WETH, DAI, provider);
-        const route = new Route([pair], WETH, DAI);
-        const amountIn = new TokenAmount(WETH, BigNumber.from('10').pow(WETH.decimals)); // Amount of input (1 ETH)
+    // Compute pool address
+    const currentPoolAddress = computePoolAddress({
+      factoryAddress: config.POOL_FACTORY_CONTRACT_ADDRESS,
+      tokenA: config.tokens.in,
+      tokenB: config.tokens.out,
+      fee: config.tokens.poolFee,
+    });
 
-        // Define slippage tolerance
-        const slippageTolerance = new Percent('50', '10000'); // 0.5%
+    // Instantiate Pool contract
+    const poolContract = new ethers.Contract(
+      currentPoolAddress,
+      IUniswapV3PoolABI,
+      provider
+    );
 
-        // Calculate the minimum amount of output tokens
-        const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
-        const amountOutMin = trade.minimumAmountOut(slippageTolerance);
+    // Fetch pool metadata
+    const [token0, token1, fee, liquidity, slot0] = await Promise.all([
+      poolContract.token0(),
+      poolContract.token1(),
+      poolContract.fee(),
+      poolContract.liquidity(),
+      poolContract.slot0(),
+    ]);
 
-        console.log(`Amount of ETH needed for 1 DAI with ${slippageTolerance.toSignificantDigits(4)}% slippage tolerance: ${amountOutMin.toFixed(4)}`);
-    } catch (error) {
-        console.error('Error:', error);
-    }
+    // Instantiate Quoter contract
+    const quoterContract = new ethers.Contract(
+      config.QUOTER_CONTRACT_ADDRESS,
+      QuoterABI,
+      provider
+    );
+
+    // Get quote using Quoter contract
+    const quotedAmountOut = await quoterContract.callStatic.quoteExactInputSingle(
+      token0,
+      token1,
+      fee,
+      config.tokens.amountIn.toString(),
+      0
+    );
+
+    console.log(`Quoted amount out: ${quotedAmountOut.toString()}`);
+  } catch (error) {
+    console.error('Error getting quote:', error);
+  }
 }
 
-main();
+getQuote();
+
