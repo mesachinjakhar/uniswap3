@@ -1,8 +1,8 @@
 const { ethers } = require('ethers');
-const { ChainId, Token, WETH9, Fetcher, Route, Trade, TradeType, Percent, TokenAmount } = require('@uniswap/sdk-core');
+const fs = require('fs');
+const { Token, WETH9, Fetcher, Route, Trade, TradeType, Percent, TokenAmount, CurrencyAmount } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/v3-sdk');
 const JSBI = require('jsbi');
-const fs = require('fs');
 
 // Load config
 const config = JSON.parse(fs.readFileSync('config.json'));
@@ -17,31 +17,39 @@ const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
 async function getSwapPrice() {
     // Fetch the token data
-    const chainId = ChainId.MAINNET;
-    const WETH = WETH9[chainId];
+    const chainId = 1; // Mainnet
+    const WETH = new Token(chainId, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
     const DAI = new Token(chainId, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
 
     // Fetch the pair data
-    const pair = await Fetcher.fetchPairData(WETH, DAI, provider);
+    const wethDaiPoolAddress = "0x60594a405d53811d3bc4766596efd80fd545a270"; // WETH-DAI pool address on mainnet
+    const router = new AlphaRouter({ chainId, provider });
 
-    // Create a route
-    const route = new Route([pair], WETH);
+    // Create the route
+    const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString())); // 1 WETH
 
-    // Create a trade for exact input of 1 WETH
-    const amountIn = ethers.utils.parseUnits("1", 18); // 1 WETH
-    const trade = new Trade(route, new TokenAmount(WETH, amountIn.toString()), TradeType.EXACT_INPUT);
+    // Generate the quote using the AlphaRouter
+    const route = await router.route(
+        amountIn,
+        DAI,
+        TradeType.EXACT_INPUT,
+        {
+            recipient: "0x0000000000000000000000000000000000000000", // dummy address
+            slippageTolerance: new Percent(50, 10000), // 0.5%
+            deadline: Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes from the current Unix time
+        }
+    );
 
-    // Set slippage tolerance to 0.5%
-    const slippageTolerance = new Percent('50', '10000'); // 0.5%
+    if (route) {
+        // Get the minimum amount of DAI received for 1 WETH
+        const amountOut = route.quote.toFixed(18);
 
-    // Get the minimum amount of DAI received for 1 WETH
-    const amountOut = trade.minimumAmountOut(slippageTolerance).raw;
-
-    // Convert the amountOut from Wei to DAI
-    const amountOutInDai = ethers.utils.formatUnits(amountOut.toString(), 18);
-
-    console.log(`1 ETH is equal to ${amountOutInDai} DAI`);
+        console.log(`1 ETH is equal to ${amountOut} DAI`);
+    } else {
+        console.error("No route found");
+    }
 }
 
 getSwapPrice();
+
 
