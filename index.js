@@ -1,8 +1,6 @@
 const { ethers } = require('ethers');
-const { Pool, Route, Trade, Token, TokenAmount, TradeType } = require('@uniswap/v3-sdk');
+const { Pool, Route, Trade, TradeType, Token, CurrencyAmount } = require('@uniswap/v3-sdk');
 const { Percent } = require('@uniswap/sdk-core');
-const { getNetwork } = require('@ethersproject/networks');
-const { fetch } = require('cross-fetch');
 
 // Load config
 const config = {
@@ -43,7 +41,8 @@ async function getSwapPrice() {
 
   // Create trade route and execute trade
   const route = new Route([pool], WETH, DAI);
-  const trade = new Trade(route, new TokenAmount(WETH, config.CUSTOM_AMOUNT), TradeType.EXACT_INPUT);
+  const amountIn = CurrencyAmount.fromRawAmount(WETH, config.CUSTOM_AMOUNT);
+  const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
 
   console.log(`1 ETH to DAI: ${trade.outputAmount.toSignificant(6)} DAI`);
 }
@@ -58,4 +57,3 @@ async function getPoolAddress(provider, tokenA, tokenB, fee) {
 }
 
 getSwapPrice().catch(console.error);
-
