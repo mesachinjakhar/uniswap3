@@ -16,42 +16,47 @@ const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI mainnet
 const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
 async function getSwapPrice() {
-    // Define chainId
-    const chainId = 1; // Mainnet
+    try {
+        // Define chainId
+        const chainId = 1; // Mainnet
 
-    // Create instances of the WETH and DAI tokens
-    const WETH = new Token(chainId, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
-    const DAI = new Token(chainId, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
-    console.log(WETH);
-    console.log(DAI);
+        // Create instances of the WETH and DAI tokens
+        const WETH = new Token(chainId, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
+        const DAI = new Token(chainId, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
+        console.log(WETH);
+        console.log(DAI);
 
-    // Initialize the AlphaRouter
-    const router = new AlphaRouter({ chainId, provider });
+        // Initialize the AlphaRouter
+        const router = new AlphaRouter({ chainId, provider });
 
-    // Define the amount of WETH to swap (1 WETH)
-    const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString()));
-    console.log(amountIn);
+        // Define the amount of WETH to swap (1 WETH)
+        const amountIn = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(ethers.utils.parseUnits("1", 18).toString()));
+        console.log(amountIn);
 
-    // Generate the route using the AlphaRouter
-    const route = await router.route(
-        amountIn,
-        DAI,
-        TradeType.EXACT_INPUT,
-        {
-            recipient: "0x0000000000000000000000000000000000000000", // replace with a valid address
-            slippageTolerance: new Percent(50, 10000), // 0.5%
-            deadline: Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes from now
+        // Generate the route using the AlphaRouter
+        const route = await router.route(
+            amountIn,
+            DAI,
+            TradeType.EXACT_INPUT,
+            {
+                recipient: "0xYourValidEthereumAddress", // replace with a valid address
+                slippageTolerance: new Percent(50, 10000), // 0.5%
+                deadline: Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes from now
+            }
+        );
+        console.log(route);
+
+        if (route) {
+            // Get the amount of DAI received for 1 WETH
+            const amountOut = route.quote.toFixed(18);
+            console.log(`1 ETH is equal to ${amountOut} DAI`);
+        } else {
+            console.error("No route found");
         }
-    );
-    console.log(route);
-
-    if (route) {
-        // Get the amount of DAI received for 1 WETH
-        const amountOut = route.quote.toFixed(18);
-        console.log(`1 ETH is equal to ${amountOut} DAI`);
-    } else {
-        console.error("No route found");
+    } catch (error) {
+        console.error("Error during route generation:", error);
     }
 }
 
 getSwapPrice();
+
