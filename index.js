@@ -1,27 +1,47 @@
 const { ethers } = require('ethers');
-const { ChainId, Token, TokenAmount, Route, Trade, TradeType, Fetcher } = require('@uniswap/sdk');
+const { AlphaRouter, ChainId } = require('@uniswap/smart-order-router');
+const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
+const { fromReadableAmount } = require('./src/libs/conversion');
 
-require('dotenv').config();
+// Example configuration
+const CurrentConfig = {
+  tokens: {
+    in: new Token(ChainId.MAINNET, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18, 'WETH', 'Wrapped Ether'),
+    out: new Token(ChainId.MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin'),
+    amountIn: 1 // 1 ETH
+  }
+};
 
-// Use local Erigon node URL
-const provider = new ethers.providers.WebSocketProvider(process.env.WS_URL);
+// Create provider for your local Erigon node
+const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
 
+// Create router instance
+const router = new AlphaRouter({
+  chainId: ChainId.MAINNET,
+  provider,
+});
+
+// Convert input amount to raw token amount
+const rawTokenAmountIn = fromReadableAmount(CurrentConfig.tokens.amountIn, CurrentConfig.tokens.in.decimals);
+
+// Route the swap and get price
 const main = async () => {
   try {
-    const WETH = await Fetcher.fetchTokenData(ChainId.MAINNET, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
-    const DAI = await Fetcher.fetchTokenData(ChainId.MAINNET, '0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    const route = await router.route(
+      CurrencyAmount.fromRawAmount(CurrentConfig.tokens.in, rawTokenAmountIn),
+      CurrentConfig.tokens.out,
+      TradeType.EXACT_INPUT
+    );
 
-    const pair = await Fetcher.fetchPairData(WETH, DAI);
-
-    const route = new Route([pair], WETH);
-
-    const trade = new Trade(route, new TokenAmount(WETH, '1000000000000000000'), TradeType.EXACT_INPUT);
-
-    console.log(`Best price for swapping 1 ETH to DAI: ${trade.executionPrice.toSignificant(6)} DAI`);
+    // Check if route is valid
+    if (route && route.midPrice) {
+      console.log(`1 ETH = ${route.midPrice.toSignificant(6)} ${CurrentConfig.tokens.out.symbol}`);
+    } else {
+      console.log('Route not found or invalid.');
+    }
   } catch (error) {
     console.error('Error:', error);
   }
 };
 
 main().catch(console.error);
-
