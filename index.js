@@ -3,7 +3,7 @@ const config = require('./config.json');
 
 // ABI for the Quoter contract's quoteExactInputSingle method
 const QUOTER_ABI = [
-  "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+  "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external view returns (uint256 amountOut)"
 ];
 
 async function getSwapPrice() {
@@ -21,7 +21,7 @@ async function getSwapPrice() {
   const quoter = new ethers.Contract(config.UNISWAPV3_QUOTER_ADDRESS, QUOTER_ABI, provider);
 
   // Get the quoted amount out
-  const amountOut = await quoter.quoteExactInputSingle(
+  const amountOut = await quoter.callStatic.quoteExactInputSingle(
     WETH_ADDRESS,
     DAI_ADDRESS,
     POOL_FEE,
@@ -33,3 +33,4 @@ async function getSwapPrice() {
 }
 
 getSwapPrice().catch(console.error);
+
