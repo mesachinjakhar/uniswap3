@@ -1,71 +1,44 @@
 const { ethers } = require("ethers");
-const { AlphaRouter, ChainId, SwapType } = require('@uniswap/smart-order-router');
-const { Token, CurrencyAmount, TradeType, Percent, WETH9 } = require('@uniswap/sdk-core');
-const config = require('./config.json');
+const fs = require('fs');
 
+// Load config
+const config = JSON.parse(fs.readFileSync('config.json'));
+
+// Define constants from config
+const NODE_URL = config.DEFAULT_NODE_URL;
+const UNISWAPV3_QUOTER_ADDRESS = config.UNISWAPV3_QUOTER_ADDRESS;
+const WETH_ADDRESS = config.WETH_ADDRESS_MAINNET;
+const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // DAI mainnet address
+const AMOUNT_IN_WEI = ethers.utils.parseEther("1"); // 1 ETH in Wei
+
+// ABI for Uniswap V3 Quoter
+const quoterAbi = [
+    "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+];
+
+// Function to get the swap price
 async function getSwapPrice() {
-  // Connect to the local Erigon node
-  const provider = new ethers.providers.JsonRpcProvider(config.DEFAULT_NODE_URL);
+    // Connect to local Erigon node
+    const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
-  // Define tokens
-  const chainId = ChainId.MAINNET;
-  const WETH = new Token(chainId, config.WETH_ADDRESS_MAINNET, 18, 'WETH', 'Wrapped Ether');
-  const DAI = new Token(chainId, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'Dai Stablecoin');
+    // Create a contract instance for the Quoter
+    const quoterContract = new ethers.Contract(UNISWAPV3_QUOTER_ADDRESS, quoterAbi, provider);
 
-  // Create a router instance
-  const router = new AlphaRouter({ chainId, provider });
+    // Fee tier for the ETH/DAI pool (0.3% fee)
+    const fee = 3000;
 
-  // Define the amount of WETH to swap
-  const amountIn = CurrencyAmount.fromRawAmount(WETH, ethers.utils.parseEther('1').toString());
+    try {
+        // Get the amount of DAI for 1 ETH
+        const amountOut = await quoterContract.quoteExactInputSingle(WETH_ADDRESS, DAI_ADDRESS, fee, AMOUNT_IN_WEI, 0);
+        
+        // Convert the amountOut from Wei to DAI
+        const amountOutInDai = ethers.utils.formatUnits(amountOut, 18);
 
-  // Define swap options
-  const swapOptions = {
-    recipient: config.wallet.address,
-    slippageTolerance: new Percent(50, 10000), // 0.5%
-    deadline: Math.floor(Date.now() / 1000 + 1800), // 30 minutes from the current Unix time
-    type: SwapType.SWAP_ROUTER_02,
-  };
-
-  // Create a route
-  const route = await router.route(
-    amountIn,
-    DAI,
-    TradeType.EXACT_INPUT,
-    swapOptions
-  );
-
-  if (!route || !route.methodParameters) {
-    console.error("No route found or method parameters missing.");
-    return;
-  }
-
-  // Print the amount of DAI for 1 WETH
-  const amountOut = route.quote.toFixed(6);
-  console.log(`Swap 1 WETH to DAI: ${amountOut} DAI`);
-
-  // If you want to execute the trade, uncomment the following lines and make sure you have set up your wallet and approvals:
-  /*
-  const wallet = new ethers.Wallet(config.wallet.privateKey, provider);
-
-  // Approve the SwapRouter to spend WETH
-  const tokenContract = new ethers.Contract(WETH.address, [
-    "function approve(address spender, uint256 amount) external returns (bool)"
-  ], wallet);
-  const approvalAmount = ethers.utils.parseEther('1').toString();
-  await tokenContract.approve(config.UNISWAPV3_QUOTER_ADDRESS, approvalAmount);
-
-  // Execute the trade
-  const tx = await wallet.sendTransaction({
-    data: route.methodParameters.calldata,
-    to: route.methodParameters.to,
-    value: route.methodParameters.value,
-    from: config.wallet.address,
-    gasPrice: await provider.getGasPrice(),
-  });
-
-  console.log('Transaction hash:', tx.hash);
-  */
+        console.log(`1 ETH is equal to ${amountOutInDai} DAI`);
+    } catch (error) {
+        console.error("Error fetching swap price:", error);
+    }
 }
 
-getSwapPrice().catch(console.error);
-
+// Call the function to get the swap price
+getSwapPrice();
