@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
-const { Pool, Route, Trade, TradeType } = require('@uniswap/v3-sdk');
-const { Token, CurrencyAmount } = require('@uniswap/sdk-core');
+const { Pool, Route, Trade } = require('@uniswap/v3-sdk');
+const { Token, CurrencyAmount, TradeType } = require('@uniswap/sdk-core'); // TradeType is part of sdk-core
 
 // Load config
 const config = {
