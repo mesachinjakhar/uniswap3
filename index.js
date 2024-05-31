@@ -1,6 +1,5 @@
 const { ethers } = require('ethers');
 const { Token } = require('@uniswap/sdk-core');
-const { Quoter } = require('@uniswap/v3-sdk');
 const JSBI = require('jsbi');
 
 // Configuration
@@ -67,18 +66,27 @@ async function getSwapPrice() {
   // Amount of WETH to swap (1 ETH)
   const amountIn = ethers.utils.parseUnits('1', weth.decimals);
 
+  const feeTiers = [500, 3000, 10000]; // 0.05%, 0.3%, 1%
+  let bestAmountOut = ethers.BigNumber.from(0);
+
   try {
-    // Get the quote
-    const quotedAmountOut = await quoter.callStatic.quoteExactInputSingle(
-      WETH_ADDRESS,
-      DAI_ADDRESS,
-      3000, // Pool fee (0.3%)
-      amountIn.toString(),
-      0
-    );
+    // Get the quote for each fee tier and find the best amount out
+    for (const fee of feeTiers) {
+      const quotedAmountOut = await quoter.callStatic.quoteExactInputSingle(
+        WETH_ADDRESS,
+        DAI_ADDRESS,
+        fee,
+        amountIn.toString(),
+        0
+      );
+
+      if (quotedAmountOut.gt(bestAmountOut)) {
+        bestAmountOut = quotedAmountOut;
+      }
+    }
 
     // Format the output with proper precision
-    const amountOut = ethers.utils.formatUnits(quotedAmountOut, dai.decimals);
+    const amountOut = ethers.utils.formatUnits(bestAmountOut, dai.decimals);
     console.log(`1 ETH = ${amountOut} DAI`);
   } catch (error) {
     console.error('Error getting swap price:', error);
