@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const { Token } = require('@uniswap/sdk-core');
+const { Quoter } = require('@uniswap/v3-sdk');
 const JSBI = require('jsbi');
 
 // Configuration
@@ -76,7 +77,7 @@ async function getSwapPrice() {
       0
     );
 
-    // Format the output
+    // Format the output with proper precision
     const amountOut = ethers.utils.formatUnits(quotedAmountOut, dai.decimals);
     console.log(`1 ETH = ${amountOut} DAI`);
   } catch (error) {
