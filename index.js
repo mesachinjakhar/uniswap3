@@ -1,4 +1,4 @@
-const { ChainId, Token, TokenAmount, TradeType, Route, Trade, Percent, TradeOptions, Fetcher } = require('@uniswap/sdk-core');
+const { ChainId, Token, TokenAmount, TradeType, Route, Trade, Percent, TradeOptions, Fetcher } = require('@uniswap/sdk/core');
 
 async function main() {
     const chainId = ChainId.MAINNET;
