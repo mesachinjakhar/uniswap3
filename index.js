@@ -8,7 +8,7 @@ const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
 require('dotenv').config()
 const INFURA_TEST_URL = process.env.ERIGON_URL
 
-const web3Provider = new ethers.providers.JsonRpcProvider(ERIGON_URL) // Ropsten
+const web3Provider = new ethers.providers.JsonRpcProvider(INFURA_TEST_URL) // Ropsten
 
 const chainId = 3
 const router = new AlphaRouter({ chainId: chainId, provider: web3Provider})
