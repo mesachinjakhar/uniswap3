@@ -3,8 +3,7 @@ const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
-// Setup
-const RPC_URL = 'http://localhost:8545'; // Your Erigon node URL
+const RPC_URL = 'http://localhost:8545'; // Replace with your Infura project ID
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
 const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
