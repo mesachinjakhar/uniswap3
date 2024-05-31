@@ -5,11 +5,11 @@ const { Token, Price } = require('@uniswap/sdk-core');
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
 // Replace these with the addresses of the tokens you're interested in
-const tokenA = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'DAI');
-const tokenB = new Token(1, '0x853d955aCEf822Db058eb8505911ED77F175b99e', 6, 'USDC', 'USDC');
+const tokenA = new Token(1, '0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf', 18, 'USDC', 'USDC');
+const tokenB = new Token(1, '0xdAC17F958D2ee523a2206206994597C13D831ec7', 6, 'USDT', 'USDT');
 
 // Replace with the address of the Uniswap V3 pool
-const poolAddress = '0x97e7d56A0408570bA1a7852De36350f7713906ec';
+const poolAddress = '0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf';
 
 async function getPoolImmutables() {
   const poolContract = new ethers.Contract(
@@ -95,8 +95,8 @@ async function getSwapPrice() {
   const ethToUsdcPrice = ethToUsdc.toSignificant(6);
   const usdcToEthPrice = usdcToEth.toSignificant(6);
 
-  console.log(`1 ETH = ${ethToUsdcPrice} USDC`);
-  console.log(`1 USDC = ${usdcToEthPrice} ETH`);
+  console.log(`1 USDC = ${ethToUsdcPrice} USDT`);
+  console.log(`1 USDT = ${usdcToEthPrice} USDC`);
 }
 
 getSwapPrice().catch(console.error);
