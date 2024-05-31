@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const { Token } = require('@uniswap/sdk-core');
+const JSBI = require('jsbi');
 
 // Configuration
 const RPC_URL = 'http://localhost:8545'; // Your Erigon node URL
