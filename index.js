@@ -1,16 +1,91 @@
 const { ethers } = require('ethers');
+const { Pool } = require('@uniswap/v3-sdk');
+const { Token } = require('@uniswap/sdk-core');
 
-// Raw addresses
-const tokenAAddressRaw = '0xC02aaA39b223FE8D0A0e5C4F27eaD9083C756Cc2';
-const tokenBAddressRaw = '0xA0b86991c6218b36c1d19D4a2e9eb0cE3606eB48';
+const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
-// Validate and format addresses using ethers.js
-try {
-  const tokenAAddress = ethers.utils.getAddress(tokenAAddressRaw);
-  const tokenBAddress = ethers.utils.getAddress(tokenBAddressRaw);
+// Replace these with the addresses of the tokens you're interested in
+const tokenA = new Token(1, '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', 18, 'WETH', 'WETH');
+const tokenB = new Token(1, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 18, 'USDC', 'USDC');
 
-  console.log('Token A Address:', tokenAAddress); // Should log: 0xC02aaA39b223FE8D0A0e5C4F27eaD9083C756Cc2
-  console.log('Token B Address:', tokenBAddress); // Should log: 0xA0b86991c6218b36c1d19D4a2e9eb0cE3606eB48
-} catch (error) {
-  console.error('Address validation error:', error);
+// Replace with the address of the Uniswap V3 pool
+const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640';
+
+async function getPoolImmutables() {
+  const poolContract = new ethers.Contract(
+    poolAddress,
+    [
+      'function factory() external view returns (address)',
+      'function token0() external view returns (address)',
+      'function token1() external view returns (address)',
+      'function fee() external view returns (uint24)',
+      'function tickSpacing() external view returns (int24)',
+      'function maxLiquidityPerTick() external view returns (uint128)',
+    ],
+    provider
+  );
+
+  const [factory, token0, token1, fee, tickSpacing, maxLiquidityPerTick] = await Promise.all([
+    poolContract.factory(),
+    poolContract.token0(),
+    poolContract.token1(),
+    poolContract.fee(),
+    poolContract.tickSpacing(),
+    poolContract.maxLiquidityPerTick(),
+  ]);
+
+  return {
+    factory,
+    token0,
+    token1,
+    fee,
+    tickSpacing,
+    maxLiquidityPerTick,
+  };
 }
+
+async function getPoolState() {
+  const poolContract = new ethers.Contract(
+    poolAddress,
+    [
+      'function liquidity() external view returns (uint128)',
+      'function slot0() external view returns (uint160, int24, uint16, uint16, uint16, uint8, bool)',
+    ],
+    provider
+  );
+
+  const [liquidity, slot0] = await Promise.all([poolContract.liquidity(), poolContract.slot0()]);
+
+  return {
+    liquidity,
+    sqrtPriceX96: slot0[0],
+    tick: slot0[1],
+    observationIndex: slot0[2],
+    observationCardinality: slot0[3],
+    observationCardinalityNext: slot0[4],
+    feeProtocol: slot0[5],
+    unlocked: slot0[6],
+  };
+}
+
+async function getSwapPrice() {
+  const immutables = await getPoolImmutables();
+  const state = await getPoolState();
+
+  const pool = new Pool(
+    tokenA,
+    tokenB,
+    immutables.fee,
+    state.sqrtPriceX96.toString(),
+    state.liquidity.toString(),
+    state.tick
+  );
+
+  const token0Price = pool.token0Price.toSignificant(6);
+  const token1Price = pool.token1Price.toSignificant(6);
+
+  console.log(`Token0 Price: ${token0Price}`);
+  console.log(`Token1 Price: ${token1Price}`);
+}
+
+getSwapPrice().catch(console.error);
