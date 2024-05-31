@@ -9,7 +9,7 @@ const tokenA = new Token(1, '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', 18, 'W
 const tokenB = new Token(1, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 6, 'USDC', 'USDC');
 
 // Replace with the address of the Uniswap V3 pool
-const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640';
+const poolAddress = '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640';
 
 async function getPoolImmutables() {
   const poolContract = new ethers.Contract(
