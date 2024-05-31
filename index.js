@@ -41,7 +41,15 @@ async function main() {
     }
   )
 
-  console.log(`Quote Exact In: ${route.quote.toFixed(10)}`)
+ if (!route) {
+      console.log("No route found for the specified tokens.")
+      return
+    }
+
+    console.log(`Quote Exact In: ${route.quote.toFixed(10)}`)
+  } catch (error) {
+    console.error("Error:", error)
+  }
 }
 
 main()
