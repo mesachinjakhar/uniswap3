@@ -1,11 +1,11 @@
 const { ethers } = require('ethers');
-const { Pool, FACTORY_ADDRESS, FeeAmount } = require('@uniswap/v3-sdk');
+const { Pool, FeeAmount } = require('@uniswap/v3-sdk');
 const { Token } = require('@uniswap/sdk-core');
 const IUniswapV3FactoryABI = require('@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Factory.sol/IUniswapV3Factory.json').abi;
 
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
-const factoryAddress = FACTORY_ADDRESS;
+const factoryAddress = '0x1F98431c8aD98523631AE4a59f267346ea31F984';
 const factoryContract = new ethers.Contract(factoryAddress, IUniswapV3FactoryABI, provider);
 
 // Replace with your token addresses
