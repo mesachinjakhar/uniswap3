@@ -9,8 +9,8 @@ const factoryAddress = FACTORY_ADDRESS;
 const factoryContract = new ethers.Contract(factoryAddress, IUniswapV3FactoryABI, provider);
 
 // Replace with your token addresses
-const tokenAAddress = '0xC02aaA39b223FE8D0A0e5C4F27eaD9083C756Cc2';
-const tokenBAddress = '0xA0b86991c6218b36c1d19D4a2e9eb0cE3606eB48';
+const tokenAAddress = ethers.utils.getAddress('0xC02aaA39b223FE8D0A0e5C4F27eaD9083C756Cc2');
+const tokenBAddress = ethers.utils.getAddress('0xA0b86991c6218b36c1d19D4a2e9eb0cE3606eB48');
 const feeTier = FeeAmount.LOW; // Use FeeAmount.MEDIUM or FeeAmount.HIGH for other fee tiers
 
 async function getPoolAddress(tokenAAddress, tokenBAddress, feeTier) {
