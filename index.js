@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const { Pool } = require('@uniswap/v3-sdk');
-const { Token } = require('@uniswap/sdk-core');
+const { Token, Price } = require('@uniswap/sdk-core');
 
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
@@ -68,24 +68,35 @@ async function getPoolState() {
   };
 }
 
-function sqrtPriceX96ToPrice(sqrtPriceX96, decimals0, decimals1) {
-  const price = sqrtPriceX96.mul(sqrtPriceX96).div(ethers.BigNumber.from(2).pow(192));
-  return price.mul(ethers.BigNumber.from(10).pow(decimals1)).div(ethers.BigNumber.from(10).pow(decimals0));
-}
-
 async function getSwapPrice() {
   const immutables = await getPoolImmutables();
   const state = await getPoolState();
 
-  console.log('Immutables:', immutables);
-  console.log('State:', state);
+  const pool = new Pool(
+    tokenA,
+    tokenB,
+    immutables.fee,
+    state.sqrtPriceX96.toString(),
+    state.liquidity.toString(),
+    state.tick
+  );
 
-  const priceInUSDC = sqrtPriceX96ToPrice(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
-  const priceInUSDCFormatted = parseFloat(ethers.utils.formatUnits(priceInUSDC, tokenB.decimals));
-  const priceInETHFormatted = 1 / priceInUSDCFormatted;
+  // Correcting the interpretation of the pool price based on token ordering
+  let ethToUsdc, usdcToEth;
 
-  console.log(`1 ETH = ${priceInUSDCFormatted.toFixed(2)} USDC`);
-  console.log(`1 USDC = ${priceInETHFormatted.toFixed(6)} ETH`);
+  if (immutables.token0.toLowerCase() === tokenA.address.toLowerCase()) {
+    ethToUsdc = pool.token0Price;
+    usdcToEth = pool.token1Price;
+  } else {
+    ethToUsdc = pool.token1Price;
+    usdcToEth = pool.token0Price;
+  }
+
+  const ethToUsdcPrice = ethToUsdc.toSignificant(6);
+  const usdcToEthPrice = usdcToEth.toSignificant(6);
+
+  console.log(`1 ETH = ${ethToUsdcPrice} USDC`);
+  console.log(`1 USDC = ${usdcToEthPrice} ETH`);
 }
 
 getSwapPrice().catch(console.error);
