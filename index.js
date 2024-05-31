@@ -18,8 +18,8 @@ const symbol0 = 'WETH'
 const decimals0 = 18
 const address0 = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
 
-const name1 = 'Uniswap Token'
-const symbol1 = 'UNI'
+const name1 = 'Dai Stablecoin'
+const symbol1 = 'DAI'
 const decimals1 = 18
 const address1 = '0x6b175474e89094c44da98b954eedeac495271d0f'
 
