@@ -10,7 +10,7 @@ const INFURA_TEST_URL = process.env.ERIGON_URL
 
 const web3Provider = new ethers.providers.JsonRpcProvider(INFURA_TEST_URL) // Ropsten
 
-const chainId = 3
+const chainId = 1
 const router = new AlphaRouter({ chainId: chainId, provider: web3Provider})
 
 const name0 = 'Wrapped Ether'
