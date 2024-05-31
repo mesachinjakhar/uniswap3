@@ -1,6 +1,5 @@
 const { ethers } = require('ethers');
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { AlphaRouter } = require('@uniswap/smart-order-router');
+const { Token } = require('@uniswap/sdk-core');
 const JSBI = require('jsbi');
 
 // Configuration
