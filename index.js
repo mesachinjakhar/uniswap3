@@ -26,7 +26,7 @@ const address1 = '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'
 const WETH = new Token(chainId, address0, decimals0, symbol0, name0)
 const UNI = new Token(chainId, address1, decimals1, symbol1, name1)
 
-const wei = ethers.utils.parseUnits('1', 18)
+const wei = ethers.utils.parseUnits('0.01', 18)
 const inputAmount = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(wei))
 
 async function main() {
