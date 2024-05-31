@@ -84,12 +84,8 @@ async function getSwapPrice() {
   const token0Price = pool.token0Price.toSignificant(6);
   const token1Price = pool.token1Price.toSignificant(6);
 
-  // Calculate the price in a more interpretable format
-  const ethToUsdc = (1 / parseFloat(token1Price)).toFixed(2); // 1 ETH in USDC
-  const usdcToEth = parseFloat(token1Price).toFixed(6);       // 1 USDC in ETH
-
-  console.log(`1 ETH = ${ethToUsdc} USDC`);
-  console.log(`1 USDC = ${usdcToEth} ETH`);
+  console.log(`1 ETH = ${token0Price} USDC`);
+  console.log(`1 USDC = ${token1Price} ETH`);
 }
 
 getSwapPrice().catch(console.error);
