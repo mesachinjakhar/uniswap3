@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
 const { Pool } = require('@uniswap/v3-sdk');
-const { Token, Price } = require('@uniswap/sdk-core');
+const { Token } = require('@uniswap/sdk-core');
 
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
@@ -72,6 +72,9 @@ async function getSwapPrice() {
   const immutables = await getPoolImmutables();
   const state = await getPoolState();
 
+  console.log('Immutables:', immutables);
+  console.log('State:', state);
+
   const pool = new Pool(
     tokenA,
     tokenB,
@@ -81,7 +84,6 @@ async function getSwapPrice() {
     state.tick
   );
 
-  // Correcting the interpretation of the pool price based on token ordering
   let ethToUsdc, usdcToEth;
 
   if (immutables.token0.toLowerCase() === tokenA.address.toLowerCase()) {
