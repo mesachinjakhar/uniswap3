@@ -5,11 +5,11 @@ const { Token, Price } = require('@uniswap/sdk-core');
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
 // Replace these with the addresses of the tokens you're interested in
-const tokenA = new Token(1, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18, 'DAI', 'DAI');
-const tokenB = new Token(1, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 6, 'USDC', 'USDC');
+const tokenA = new Token(1, '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 18, 'DAI', 'DAI');
+const tokenB = new Token(1, '0xdAC17F958D2ee523a2206206994597C13D831ec7', 6, 'USDC', 'USDC');
 
 // Replace with the address of the Uniswap V3 pool
-const poolAddress = '0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168';
+const poolAddress = '0x3416cF6C708Da44DB2624D63ea0AAef7113527C6';
 
 async function getPoolImmutables() {
   const poolContract = new ethers.Contract(
