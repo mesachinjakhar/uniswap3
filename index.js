@@ -1,6 +1,6 @@
 const { ethers } = require('ethers');
-const { Pool, TickMath, encodeSqrtRatioX96 } = require('@uniswap/v3-sdk');
-const { Token, Price } = require('@uniswap/sdk-core');
+const { Pool } = require('@uniswap/v3-sdk');
+const { Token } = require('@uniswap/sdk-core');
 
 const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545'); // Replace with your Erigon node URL
 
@@ -68,9 +68,7 @@ async function getPoolState() {
   };
 }
 
-function calculatePriceFromSqrtPriceX96(sqrtPriceX96, decimals0, decimals1) {
-  // Price = (sqrtPriceX96 ^ 2) / (2 ^ 192)
-  // Convert sqrtPriceX96 to a human-readable price using the token decimals
+function sqrtPriceX96ToPrice(sqrtPriceX96, decimals0, decimals1) {
   const price = sqrtPriceX96.mul(sqrtPriceX96).div(ethers.BigNumber.from(2).pow(192));
   return price.mul(ethers.BigNumber.from(10).pow(decimals1)).div(ethers.BigNumber.from(10).pow(decimals0));
 }
@@ -82,13 +80,12 @@ async function getSwapPrice() {
   console.log('Immutables:', immutables);
   console.log('State:', state);
 
-  // Calculate the price from sqrtPriceX96
-  const ethToUsdcPriceRaw = calculatePriceFromSqrtPriceX96(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
-  const ethToUsdcPrice = parseFloat(ethers.utils.formatUnits(ethToUsdcPriceRaw, tokenB.decimals));
-  const usdcToEthPrice = 1 / ethToUsdcPrice;
+  const priceInUSDC = sqrtPriceX96ToPrice(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
+  const priceInUSDCFormatted = parseFloat(ethers.utils.formatUnits(priceInUSDC, tokenB.decimals));
+  const priceInETHFormatted = 1 / priceInUSDCFormatted;
 
-  console.log(`1 ETH = ${ethToUsdcPrice.toFixed(2)} USDC`);
-  console.log(`1 USDC = ${usdcToEthPrice.toFixed(6)} ETH`);
+  console.log(`1 ETH = ${priceInUSDCFormatted.toFixed(2)} USDC`);
+  console.log(`1 USDC = ${priceInETHFormatted.toFixed(6)} ETH`);
 }
 
 getSwapPrice().catch(console.error);
