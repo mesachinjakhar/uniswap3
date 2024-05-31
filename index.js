@@ -1,5 +1,5 @@
 const { ethers } = require('ethers');
-const { Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType, Percent } = require('@uniswap/sdk');
+const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
@@ -26,7 +26,7 @@ async function getSwapPrice() {
   try {
     // Fetch the best route using AlphaRouter
     const route = await router.route(
-      new TokenAmount(weth, JSBI.BigInt(amountIn.toString())),
+      CurrencyAmount.fromRawAmount(weth, JSBI.BigInt(amountIn.toString())),
       dai,
       TradeType.EXACT_INPUT,
       {
