@@ -71,8 +71,8 @@ async function getPoolState() {
 function calculatePriceFromSqrtPriceX96(sqrtPriceX96, decimals0, decimals1) {
   // Price = (sqrtPriceX96 ^ 2) / (2 ^ 192)
   // Convert sqrtPriceX96 to a human-readable price using the token decimals
-  const price = (sqrtPriceX96 ** 2) / 2 ** 192;
-  return price * (10 ** (decimals1 - decimals0));
+  const price = sqrtPriceX96.mul(sqrtPriceX96).div(ethers.BigNumber.from(2).pow(192));
+  return price.mul(ethers.BigNumber.from(10).pow(decimals1)).div(ethers.BigNumber.from(10).pow(decimals0));
 }
 
 async function getSwapPrice() {
@@ -83,7 +83,8 @@ async function getSwapPrice() {
   console.log('State:', state);
 
   // Calculate the price from sqrtPriceX96
-  const ethToUsdcPrice = calculatePriceFromSqrtPriceX96(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
+  const ethToUsdcPriceRaw = calculatePriceFromSqrtPriceX96(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
+  const ethToUsdcPrice = parseFloat(ethers.utils.formatUnits(ethToUsdcPriceRaw, tokenB.decimals));
   const usdcToEthPrice = 1 / ethToUsdcPrice;
 
   console.log(`1 ETH = ${ethToUsdcPrice.toFixed(2)} USDC`);
