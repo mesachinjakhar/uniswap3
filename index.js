@@ -3,6 +3,7 @@ const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core
 const { AlphaRouter } = require('@uniswap/smart-order-router');
 const JSBI = require('jsbi');
 
+// Setup
 const RPC_URL = 'http://localhost:8545'; // Your Erigon node URL
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
@@ -24,7 +25,7 @@ async function getSwapPrice() {
       dai,
       TradeType.EXACT_INPUT,
       {
-        recipient: '0x0000000000000000000000000000000000000000',
+        recipient: ethers.constants.AddressZero,
         slippageTolerance: new Percent('50', '10000'),
         deadline: Math.floor(Date.now() / 1000) + 60 * 20,
       }
