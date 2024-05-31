@@ -3,7 +3,7 @@ const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core
 const { ethers, BigNumber } = require('ethers')
 const JSBI  = require('jsbi') // jsbi@3.2.5
 
-const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45'
 
 require('dotenv').config()
 const INFURA_TEST_URL = process.env.ERIGON_URL
