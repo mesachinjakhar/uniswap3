@@ -39,30 +39,21 @@ async function getSwapPrice() {
   // Amount of WETH to swap (1 ETH)
   const amountIn = ethers.utils.parseUnits('1', weth.decimals);
 
-  const feeTiers = [500, 3000, 10000]; // 0.05%, 0.3%, 1%
-  let bestAmountOut = ethers.BigNumber.from(0);
-  let bestFeeTier = 0;
+  const feeTier = 500; // 0.05% as seen on Uniswap app
 
   try {
-    // Get the quote for each fee tier and find the best amount out
-    for (const fee of feeTiers) {
-      const quotedAmountOut = await quoter.callStatic.quoteExactInputSingle(
-        WETH_ADDRESS,
-        DAI_ADDRESS,
-        fee,
-        amountIn.toString(),
-        0
-      );
-
-      if (quotedAmountOut.gt(bestAmountOut)) {
-        bestAmountOut = quotedAmountOut;
-        bestFeeTier = fee;
-      }
-    }
+    // Get the quote for the specific fee tier
+    const quotedAmountOut = await quoter.callStatic.quoteExactInputSingle(
+      WETH_ADDRESS,
+      DAI_ADDRESS,
+      feeTier,
+      amountIn.toString(),
+      0
+    );
 
     // Format the output with proper precision
-    const amountOut = ethers.utils.formatUnits(bestAmountOut, dai.decimals);
-    console.log(`Best fee tier: ${bestFeeTier} - 1 ETH = ${amountOut} DAI`);
+    const amountOut = ethers.utils.formatUnits(quotedAmountOut, dai.decimals);
+    console.log(`Best fee tier: ${feeTier} - 1 ETH = ${amountOut} DAI`);
   } catch (error) {
     console.error('Error getting swap price:', error);
   }
