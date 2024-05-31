@@ -30,18 +30,19 @@ const wei = ethers.utils.parseUnits('0.01', 18)
 const inputAmount = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(wei))
 
 async function main() {
-  const route = await router.route(
-    inputAmount,
-    UNI,
-    TradeType.EXACT_INPUT,
-    {
-      recipient: '0x0000000000000000000000000000000000000000', // dummy recipient address
-      slippageTolerance: new Percent(25, 100),
-      deadline: Math.floor(Date.now()/1000 + 1800)
-    }
-  )
+  try {
+    const route = await router.route(
+      inputAmount,
+      UNI,
+      TradeType.EXACT_INPUT,
+      {
+        recipient: '0x0000000000000000000000000000000000000000', // dummy recipient address
+        slippageTolerance: new Percent(25, 100),
+        deadline: Math.floor(Date.now()/1000 + 1800)
+      }
+    )
 
- if (!route) {
+    if (!route) {
       console.log("No route found for the specified tokens.")
       return
     }
