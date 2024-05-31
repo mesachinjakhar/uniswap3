@@ -1,6 +1,5 @@
 const { ethers } = require('ethers');
 const { Token } = require('@uniswap/sdk-core');
-const JSBI = require('jsbi');
 
 // Configuration
 const RPC_URL = 'http://localhost:8545'; // Your Erigon node URL
@@ -42,6 +41,7 @@ async function getSwapPrice() {
 
   const feeTiers = [500, 3000, 10000]; // 0.05%, 0.3%, 1%
   let bestAmountOut = ethers.BigNumber.from(0);
+  let bestFeeTier = 0;
 
   try {
     // Get the quote for each fee tier and find the best amount out
@@ -56,12 +56,13 @@ async function getSwapPrice() {
 
       if (quotedAmountOut.gt(bestAmountOut)) {
         bestAmountOut = quotedAmountOut;
+        bestFeeTier = fee;
       }
     }
 
     // Format the output with proper precision
     const amountOut = ethers.utils.formatUnits(bestAmountOut, dai.decimals);
-    console.log(`1 ETH = ${amountOut} DAI`);
+    console.log(`Best fee tier: ${bestFeeTier} - 1 ETH = ${amountOut} DAI`);
   } catch (error) {
     console.error('Error getting swap price:', error);
   }
