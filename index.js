@@ -1,44 +1,47 @@
-const { ethers } = require('ethers');
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { AlphaRouter } = require('@uniswap/smart-order-router');
-const JSBI = require('jsbi');
+const { AlphaRouter } = require('@uniswap/smart-order-router')
+const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core')
+const { ethers, BigNumber } = require('ethers')
+const JSBI  = require('jsbi') // jsbi@3.2.5
 
-const RPC_URL = 'http://localhost:8545'; // Replace with your Infura project ID
-const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
 
-const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-const DAI_ADDRESS = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
-const CHAIN_ID = 1; // Mainnet
+require('dotenv').config()
+const INFURA_TEST_URL = process.env.INFURA_TEST_URL
 
-const router = new AlphaRouter({ chainId: CHAIN_ID, provider });
+const web3Provider = new ethers.providers.JsonRpcProvider(INFURA_TEST_URL) // Ropsten
 
-async function getSwapPrice() {
-  const weth = new Token(CHAIN_ID, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
-  const dai = new Token(CHAIN_ID, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
+const chainId = 3
+const router = new AlphaRouter({ chainId: chainId, provider: web3Provider})
 
-  const amountIn = ethers.utils.parseUnits('1', 18);
+const name0 = 'Wrapped Ether'
+const symbol0 = 'WETH'
+const decimals0 = 18
+const address0 = '0xc778417e063141139fce010982780140aa0cd5ab'
 
-  try {
-    const route = await router.route(
-      CurrencyAmount.fromRawAmount(weth, JSBI.BigInt(amountIn.toString())),
-      dai,
-      TradeType.EXACT_INPUT,
-      {
-        recipient: ethers.constants.AddressZero,
-        slippageTolerance: new Percent('50', '10000'),
-        deadline: Math.floor(Date.now() / 1000) + 60 * 20,
-      }
-    );
+const name1 = 'Uniswap Token'
+const symbol1 = 'UNI'
+const decimals1 = 18
+const address1 = '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'
 
-    if (route) {
-      const amountOut = route.quote.toExact();
-      console.log(`Best price route: 1 ETH = ${amountOut} DAI`);
-    } else {
-      console.log('No route found');
+const WETH = new Token(chainId, address0, decimals0, symbol0, name0)
+const UNI = new Token(chainId, address1, decimals1, symbol1, name1)
+
+const wei = ethers.utils.parseUnits('0.01', 18)
+const inputAmount = CurrencyAmount.fromRawAmount(WETH, JSBI.BigInt(wei))
+
+async function main() {
+  const route = await router.route(
+    inputAmount,
+    UNI,
+    TradeType.EXACT_INPUT,
+    {
+      recipient: '0x0000000000000000000000000000000000000000', // dummy recipient address
+      slippageTolerance: new Percent(25, 100),
+      deadline: Math.floor(Date.now()/1000 + 1800)
     }
-  } catch (error) {
-    console.error('Error getting swap price:', error);
-  }
+  )
+
+  console.log(`Quote Exact In: ${route.quote.toFixed(10)}`)
 }
 
-getSwapPrice();
+main()
