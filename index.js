@@ -1,59 +1,47 @@
 const { ethers } = require('ethers');
-const { Token } = require('@uniswap/sdk-core');
+const { Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType, Percent } = require('@uniswap/sdk');
+const { AlphaRouter } = require('@uniswap/smart-order-router');
+const JSBI = require('jsbi');
 
 // Configuration
 const RPC_URL = 'http://localhost:8545'; // Your Erigon node URL
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-// Uniswap contract addresses and ABI
-const QUOTER_ADDRESS = '0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6';
-const QUOTER_ABI = [
-  {
-    "inputs": [
-      { "internalType": "address", "name": "tokenIn", "type": "address" },
-      { "internalType": "address", "name": "tokenOut", "type": "address" },
-      { "internalType": "uint24", "name": "fee", "type": "uint24" },
-      { "internalType": "uint256", "name": "amountIn", "type": "uint256" },
-      { "internalType": "uint160", "name": "sqrtPriceLimitX96", "type": "uint160" }
-    ],
-    "name": "quoteExactInputSingle",
-    "outputs": [{ "internalType": "uint256", "name": "amountOut", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
-
-// Tokens
+// Uniswap tokens and addresses
 const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 const DAI_ADDRESS = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
 const CHAIN_ID = 1; // Mainnet
+
+// Initialize the Uniswap AlphaRouter
+const router = new AlphaRouter({ chainId: CHAIN_ID, provider });
 
 async function getSwapPrice() {
   // Define the tokens
   const weth = new Token(CHAIN_ID, WETH_ADDRESS, 18, 'WETH', 'Wrapped Ether');
   const dai = new Token(CHAIN_ID, DAI_ADDRESS, 18, 'DAI', 'Dai Stablecoin');
 
-  // Create the quoter contract
-  const quoter = new ethers.Contract(QUOTER_ADDRESS, QUOTER_ABI, provider);
-
   // Amount of WETH to swap (1 ETH)
-  const amountIn = ethers.utils.parseUnits('1', weth.decimals);
-
-  const feeTier = 500; // 0.05% as seen on Uniswap app
+  const amountIn = ethers.utils.parseUnits('1', 18);
 
   try {
-    // Get the quote for the specific fee tier
-    const quotedAmountOut = await quoter.callStatic.quoteExactInputSingle(
-      WETH_ADDRESS,
-      DAI_ADDRESS,
-      feeTier,
-      amountIn.toString(),
-      0
+    // Fetch the best route using AlphaRouter
+    const route = await router.route(
+      new TokenAmount(weth, JSBI.BigInt(amountIn.toString())),
+      dai,
+      TradeType.EXACT_INPUT,
+      {
+        recipient: '0x0000000000000000000000000000000000000000', // This can be any address since we're not making an actual trade
+        slippageTolerance: new Percent('50', '10000'), // 0.5% slippage tolerance
+        deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from the current Unix time
+      }
     );
 
-    // Format the output with proper precision
-    const amountOut = ethers.utils.formatUnits(quotedAmountOut, dai.decimals);
-    console.log(`Best fee tier: ${feeTier} - 1 ETH = ${amountOut} DAI`);
+    if (route) {
+      const amountOut = route.quote.toExact();
+      console.log(`Best price route: 1 ETH = ${amountOut} DAI`);
+    } else {
+      console.log('No route found');
+    }
   } catch (error) {
     console.error('Error getting swap price:', error);
   }
