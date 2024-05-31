@@ -68,6 +68,13 @@ async function getPoolState() {
   };
 }
 
+function calculatePriceFromSqrtPriceX96(sqrtPriceX96, decimals0, decimals1) {
+  // Price = (sqrtPriceX96 ^ 2) / (2 ^ 192)
+  // Convert sqrtPriceX96 to a human-readable price using the token decimals
+  const price = (sqrtPriceX96 ** 2) / 2 ** 192;
+  return price * (10 ** (decimals1 - decimals0));
+}
+
 async function getSwapPrice() {
   const immutables = await getPoolImmutables();
   const state = await getPoolState();
@@ -75,30 +82,12 @@ async function getSwapPrice() {
   console.log('Immutables:', immutables);
   console.log('State:', state);
 
-  const pool = new Pool(
-    tokenA,
-    tokenB,
-    immutables.fee,
-    state.sqrtPriceX96.toString(),
-    state.liquidity.toString(),
-    state.tick
-  );
+  // Calculate the price from sqrtPriceX96
+  const ethToUsdcPrice = calculatePriceFromSqrtPriceX96(state.sqrtPriceX96, tokenA.decimals, tokenB.decimals);
+  const usdcToEthPrice = 1 / ethToUsdcPrice;
 
-  let ethToUsdcPrice, usdcToEthPrice;
-
-  if (immutables.token0.toLowerCase() === tokenA.address.toLowerCase()) {
-    ethToUsdcPrice = pool.token1Price;
-    usdcToEthPrice = pool.token0Price;
-  } else {
-    ethToUsdcPrice = pool.token0Price;
-    usdcToEthPrice = pool.token1Price;
-  }
-
-  const ethToUsdcFormatted = ethToUsdcPrice.toSignificant(6);
-  const usdcToEthFormatted = usdcToEthPrice.toSignificant(6);
-
-  console.log(`1 ETH = ${ethToUsdcFormatted} USDC`);
-  console.log(`1 USDC = ${usdcToEthFormatted} ETH`);
+  console.log(`1 ETH = ${ethToUsdcPrice.toFixed(2)} USDC`);
+  console.log(`1 USDC = ${usdcToEthPrice.toFixed(6)} ETH`);
 }
 
 getSwapPrice().catch(console.error);
