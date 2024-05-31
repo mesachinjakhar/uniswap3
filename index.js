@@ -1,4 +1,4 @@
-const { ChainId, Token, TokenAmount, TradeType, Route, Trade, Percent, TradeOptions } = require('@uniswap/sdk-core');
+const { ChainId, Token, TokenAmount, TradeType, Route, Trade, Percent, TradeOptions, Fetcher } = require('@uniswap/sdk-core');
 const {Fetcher } = require('@uniswap/v3-sdk');
 
 
