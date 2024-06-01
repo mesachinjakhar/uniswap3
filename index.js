@@ -79,10 +79,10 @@ async function computeSpotPrice(poolAddress, token0Decimals, token1Decimals) {
     const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
     const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
     
-    const baseAmount = JSBI.BigInt(10 ** token0Decimals); // 1 unit of the base token
-    const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
+    const baseAmount = JSBI.BigInt(10 ** token1Decimals); // 1 unit of the quote token
+    const quoteAmount = FullMath.mulDivRoundingUp(shift, baseAmount, ratioX192); // Adjust this line
 
-    const price = JSBI.toNumber(quoteAmount) / (10 ** token1Decimals);
+    const price = JSBI.toNumber(quoteAmount) / (10 ** token0Decimals);
     return price;
 }
 
