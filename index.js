@@ -59,30 +59,17 @@ const state = {
     customAmountInWei: config.CUSTOM_AMOUNT
 };
 
-async function getPoolState(poolAddress) {
-    const poolContract = new web3.eth.Contract(UniswapV3PoolAbi, poolAddress);
-    const [slot0, liquidity] = await Promise.all([
-        poolContract.methods.slot0().call(),
-        poolContract.methods.liquidity().call()
-    ]);
+async function computeRealTimePrice(pool, token0Decimals, token1Decimals) {
+    const baseToken = isWeth(pool.token0) ? pool.token0 : pool.token1;
+    const quoteToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
+    const path = ethers.utils.defaultAbiCoder.encode(
+        ['address', 'uint24', 'address'],
+        [baseToken, pool.fee, quoteToken]
+    );
 
-    return {
-        sqrtPriceX96: slot0.sqrtPriceX96,
-        tick: slot0.tick,
-        liquidity
-    };
-}
+    const amountOut = await quoter.methods.quoteExactInput(path, ONE_WETH).call();
+    const price = ethers.utils.formatUnits(amountOut, isWeth(pool.token0) ? token1Decimals : token0Decimals);
 
-async function computeSpotPrice(poolAddress, token0Decimals, token1Decimals) {
-    const poolState = await getPoolState(poolAddress);
-    const sqrtRatioX96 = JSBI.BigInt(poolState.sqrtPriceX96);
-    const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
-    const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
-    
-    const baseAmount = JSBI.BigInt(10 ** token0Decimals); // 1 unit of the base token
-    const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
-
-    const price = JSBI.toNumber(quoteAmount) / (10 ** token1Decimals);
     return price;
 }
 
@@ -122,7 +109,7 @@ async function updatePoolPrices(pool) {
     const token0 = state.tokens[pool.token0];
     const token1 = state.tokens[pool.token1];
 
-    const realTimePrice = await computeSpotPrice(pool.pool, token0.decimals, token1.decimals);
+    const realTimePrice = await computeRealTimePrice(pool, token0.decimals, token1.decimals);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
