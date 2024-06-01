@@ -8,9 +8,9 @@ const { Fetcher, Route, Trade, Token, TokenAmount, TradeType } = require('@unisw
 const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
 
 // Example token addresses: WETH and USDT
-const baseToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH
-const quoteToken = '0xdAC17F958D2ee523a2206206994597C13D831ec7'; // USDT
-const poolAddress = '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8'; // WETH/USDT pool address
+const baseToken = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // WETH
+const quoteToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // USDT
+const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'; // WETH/USDT pool address
 
 async function getPoolState(poolAddress) {
   const poolAbi = [
