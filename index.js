@@ -2,7 +2,7 @@ const JSBI = require('jsbi')
 const { TickMath, FullMath } = require('@uniswap/v3-sdk')
 
 const baseToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' // WETH
-const quoteToken = '0x6B175474E89094C44Da98b954EedeAC495271d0F' // WBTC
+const quoteToken = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' // WBTC
 
 async function main(
   baseToken,
@@ -29,7 +29,7 @@ main(
   baseToken,
   quoteToken,
   1,
-  -82408,
+  193914,
   8,
   18,
 )
