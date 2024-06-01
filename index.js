@@ -7,7 +7,7 @@ math.config({ number: 'BigNumber' });
 
 const ethers = require('ethers');
 const Web3 = require('web3');
-const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL || 'https://mainnet.infura.io/v3/d67f04ba6c904a828f2e97090abffb51'
+const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL
 const provider = new Web3.providers.WebsocketProvider(web3Url, {
     clientConfig: {
         maxReceivedFrameSize: 10000000000,
