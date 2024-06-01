@@ -2,8 +2,12 @@ const fs = require('fs');
 const config = require('./config.json');
 const ethers = require('ethers');
 const Web3 = require('web3');
-const { TickMath, FullMath } = require('@uniswap/v3-sdk');
+const { abi: IUniswapV3QuoterAbi } = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json');
+const { abi: UniswapV3PoolAbi } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json');
+const { abi: IERC20MetadataAbi } = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json');
+const { abi: IUniswapV3FactoryAbi } = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json');
 const JSBI = require('jsbi');
+const { TickMath, FullMath } = require('@uniswap/v3-sdk');
 
 // Local Erigon node URLs
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL || 'ws://localhost:8546';
@@ -28,11 +32,6 @@ provider.on('end', function (e) {
     console.error('WebSocket Connection Closed', e);
     process.exit(1);
 });
-
-const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
-const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
-const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
-const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
 
 const factory = new web3.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
 const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
@@ -59,30 +58,17 @@ const state = {
     customAmountInWei: config.CUSTOM_AMOUNT
 };
 
-async function getPoolState(poolAddress) {
-    const poolContract = new web3.eth.Contract(UniswapV3PoolAbi, poolAddress);
-    const [slot0, liquidity] = await Promise.all([
-        poolContract.methods.slot0().call(),
-        poolContract.methods.liquidity().call()
-    ]);
+async function computeRealTimePrice(pool, token0Decimals, token1Decimals) {
+    const baseToken = isWeth(pool.token0) ? pool.token0 : pool.token1;
+    const quoteToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
+    const path = ethers.utils.defaultAbiCoder.encode(
+        ['address', 'uint24', 'address'],
+        [baseToken, pool.fee, quoteToken]
+    );
 
-    return {
-        sqrtPriceX96: slot0.sqrtPriceX96,
-        tick: slot0.tick,
-        liquidity
-    };
-}
+    const amountOut = await quoter.methods.quoteExactInput(path, ONE_WETH).call();
+    const price = ethers.utils.formatUnits(amountOut, isWeth(pool.token0) ? token1Decimals : token0Decimals);
 
-async function computeSpotPrice(poolAddress, token0Decimals, token1Decimals) {
-    const poolState = await getPoolState(poolAddress);
-    const sqrtRatioX96 = JSBI.BigInt(poolState.sqrtPriceX96);
-    const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
-    const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
-    
-    const baseAmount = JSBI.BigInt(10 ** token0Decimals); // 1 unit of the base token
-    const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
-
-    const price = JSBI.toNumber(quoteAmount) / (10 ** token1Decimals);
     return price;
 }
 
@@ -122,7 +108,7 @@ async function updatePoolPrices(pool) {
     const token0 = state.tokens[pool.token0];
     const token1 = state.tokens[pool.token1];
 
-    const realTimePrice = await computeSpotPrice(pool.pool, token0.decimals, token1.decimals);
+    const realTimePrice = await computeRealTimePrice(pool, token0.decimals, token1.decimals);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
