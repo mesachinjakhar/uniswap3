@@ -1,9 +1,11 @@
 const fs = require('fs');
 const config = require('./config.json');
 const ethers = require('ethers');
-const { ChainId, Token, WETH, Fetcher, Route } = require('@uniswap/sdk');
+const { ChainId, Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType } = require('@uniswap/sdk');
+const { AlphaRouter } = require('@uniswap/smart-order-router');
 const Web3 = require('web3');
 
+// Local Erigon node URLs
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL || 'ws://localhost:8546';
 const provider = new Web3.providers.WebsocketProvider(web3Url, {
     clientConfig: {
@@ -66,6 +68,30 @@ async function getRealTimePrice(tokenAddress) {
     return route.midPrice.toSignificant(6);
 }
 
+async function getPoolState(poolAddress) {
+    const poolContract = new web3.eth.Contract(UniswapV3PoolAbi, poolAddress);
+    const [slot0, liquidity] = await Promise.all([
+        poolContract.methods.slot0().call(),
+        poolContract.methods.liquidity().call()
+    ]);
+
+    return {
+        sqrtPriceX96: slot0.sqrtPriceX96,
+        tick: slot0.tick,
+        liquidity
+    };
+}
+
+async function computeSpotPrice(poolAddress, tokenAddress) {
+    const poolState = await getPoolState(poolAddress);
+    const tokenDecimals = state.tokens[tokenAddress].decimals;
+
+    // Calculate the current price
+    const price = ethers.BigNumber.from(poolState.sqrtPriceX96).pow(2).mul(ethers.BigNumber.from(10).pow(18)).div(ethers.BigNumber.from(2).pow(192)).mul(ethers.BigNumber.from(10).pow(tokenDecimals)).div(ethers.BigNumber.from(10).pow(18));
+
+    return ethers.utils.formatUnits(price, tokenDecimals);
+}
+
 async function updatePoolPrices(pool) {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
 
@@ -99,7 +125,7 @@ async function updatePoolPrices(pool) {
         return;
     }
 
-    const realTimePrice = await getRealTimePrice(otherToken);
+    const realTimePrice = await computeSpotPrice(pool.pool, otherToken);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
