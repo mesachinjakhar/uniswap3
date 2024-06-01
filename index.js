@@ -1,8 +1,9 @@
 const fs = require('fs');
 const config = require('./config.json');
 const ethers = require('ethers');
-const { ChainId, Token, WETH, Fetcher, Route } = require('@uniswap/sdk');
 const Web3 = require('web3');
+const { TickMath, FullMath } = require('@uniswap/v3-sdk');
+const JSBI = require('jsbi');
 
 // Local Erigon node URLs
 const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL || 'ws://localhost:8546';
@@ -58,15 +59,6 @@ const state = {
     customAmountInWei: config.CUSTOM_AMOUNT
 };
 
-async function getRealTimePrice(tokenAddress) {
-    const token = await Fetcher.fetchTokenData(ChainId.MAINNET, tokenAddress);
-    const weth = WETH[ChainId.MAINNET];
-    const pair = await Fetcher.fetchPairData(token, weth);
-    const route = new Route([pair], weth);
-
-    return route.midPrice.toSignificant(6);
-}
-
 async function getPoolState(poolAddress) {
     const poolContract = new web3.eth.Contract(UniswapV3PoolAbi, poolAddress);
     const [slot0, liquidity] = await Promise.all([
@@ -81,26 +73,17 @@ async function getPoolState(poolAddress) {
     };
 }
 
-function sqrtPriceX96ToPrice(sqrtPriceX96, token0Decimals, token1Decimals) {
-    const sqrtPriceX96BN = ethers.BigNumber.from(sqrtPriceX96);
-    const price = sqrtPriceX96BN.mul(sqrtPriceX96BN)
-        .mul(ethers.BigNumber.from(10).pow(token1Decimals))
-        .div(ethers.BigNumber.from(2).pow(192))
-        .div(ethers.BigNumber.from(10).pow(token0Decimals));
-
-    return price;
-}
-
-async function computeSpotPrice(poolAddress, token0, token1) {
+async function computeSpotPrice(poolAddress, token0Decimals, token1Decimals) {
     const poolState = await getPoolState(poolAddress);
-    const price0to1 = sqrtPriceX96ToPrice(poolState.sqrtPriceX96, token0.decimals, token1.decimals);
-    const price1to0 = sqrtPriceX96ToPrice(poolState.sqrtPriceX96, token1.decimals, token0.decimals);
-
-    // Price of token1 in terms of token0
-    const normalizedPrice0to1 = ethers.utils.formatUnits(price0to1, token1.decimals);
-    const normalizedPrice1to0 = ethers.utils.formatUnits(price1to0, token0.decimals);
+    const sqrtRatioX96 = JSBI.BigInt(poolState.sqrtPriceX96);
+    const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
+    const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
     
-    return { normalizedPrice0to1, normalizedPrice1to0 };
+    const baseAmount = JSBI.BigInt(10 ** token0Decimals); // 1 unit of the base token
+    const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
+
+    const price = JSBI.toNumber(quoteAmount) / (10 ** token1Decimals);
+    return price;
 }
 
 async function updatePoolPrices(pool) {
@@ -139,7 +122,7 @@ async function updatePoolPrices(pool) {
     const token0 = state.tokens[pool.token0];
     const token1 = state.tokens[pool.token1];
 
-    const { normalizedPrice0to1 } = await computeSpotPrice(pool.pool, token0, token1);
+    const realTimePrice = await computeSpotPrice(pool.pool, token0.decimals, token1.decimals);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
@@ -152,7 +135,7 @@ async function updatePoolPrices(pool) {
     state.prices[otherToken].pools[pool.pool] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
         tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        realTimePrice: normalizedPrice0to1
+        realTimePrice: realTimePrice.toString()
     };
 }
 
