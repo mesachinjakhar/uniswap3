@@ -84,7 +84,8 @@ async function getPoolState(poolAddress) {
 function sqrtPriceX96ToPrice(sqrtPriceX96, token0Decimals, token1Decimals) {
     const numerator = ethers.BigNumber.from(sqrtPriceX96).pow(2).mul(ethers.BigNumber.from(10).pow(token1Decimals));
     const denominator = ethers.BigNumber.from(2).pow(192).mul(ethers.BigNumber.from(10).pow(token0Decimals));
-    return numerator.div(denominator);
+    const price = numerator.div(denominator);
+    return price;
 }
 
 async function computeSpotPrice(poolAddress, token0, token1) {
@@ -92,7 +93,7 @@ async function computeSpotPrice(poolAddress, token0, token1) {
 
     const price0to1 = sqrtPriceX96ToPrice(poolState.sqrtPriceX96, token0.decimals, token1.decimals);
 
-    return price0to1.toString();
+    return ethers.utils.formatUnits(price0to1, token1.decimals);
 }
 
 async function updatePoolPrices(pool) {
@@ -144,7 +145,7 @@ async function updatePoolPrices(pool) {
     state.prices[otherToken].pools[pool.pool] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
         tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        realTimePrice: ethers.utils.formatUnits(realTimePrice, token0.decimals)
+        realTimePrice
     };
 }
 
