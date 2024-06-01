@@ -1,8 +1,7 @@
 const fs = require('fs');
 const config = require('./config.json');
 const ethers = require('ethers');
-const { ChainId, Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType } = require('@uniswap/sdk');
-const { AlphaRouter } = require('@uniswap/v3-sdk');
+const { ChainId, Token, WETH, Fetcher, Route } = require('@uniswap/sdk');
 const Web3 = require('web3');
 
 // Local Erigon node URLs
@@ -82,14 +81,18 @@ async function getPoolState(poolAddress) {
     };
 }
 
-async function computeSpotPrice(poolAddress, tokenAddress) {
+function sqrtPriceX96ToPrice(sqrtPriceX96, token0Decimals, token1Decimals) {
+    const numerator = ethers.BigNumber.from(sqrtPriceX96).pow(2).mul(ethers.BigNumber.from(10).pow(token1Decimals));
+    const denominator = ethers.BigNumber.from(2).pow(192).mul(ethers.BigNumber.from(10).pow(token0Decimals));
+    return numerator.div(denominator);
+}
+
+async function computeSpotPrice(poolAddress, token0, token1) {
     const poolState = await getPoolState(poolAddress);
-    const tokenDecimals = state.tokens[tokenAddress].decimals;
 
-    // Calculate the current price
-    const price = ethers.BigNumber.from(poolState.sqrtPriceX96).pow(2).mul(ethers.BigNumber.from(10).pow(18)).div(ethers.BigNumber.from(2).pow(192)).mul(ethers.BigNumber.from(10).pow(tokenDecimals)).div(ethers.BigNumber.from(10).pow(18));
+    const price0to1 = sqrtPriceX96ToPrice(poolState.sqrtPriceX96, token0.decimals, token1.decimals);
 
-    return ethers.utils.formatUnits(price, tokenDecimals);
+    return price0to1.toString();
 }
 
 async function updatePoolPrices(pool) {
@@ -125,7 +128,10 @@ async function updatePoolPrices(pool) {
         return;
     }
 
-    const realTimePrice = await computeSpotPrice(pool.pool, otherToken);
+    const token0 = state.tokens[pool.token0];
+    const token1 = state.tokens[pool.token1];
+
+    const realTimePrice = await computeSpotPrice(pool.pool, token0, token1);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
@@ -138,7 +144,7 @@ async function updatePoolPrices(pool) {
     state.prices[otherToken].pools[pool.pool] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
         tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        realTimePrice
+        realTimePrice: ethers.utils.formatUnits(realTimePrice, token0.decimals)
     };
 }
 
