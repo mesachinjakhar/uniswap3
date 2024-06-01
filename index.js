@@ -53,7 +53,8 @@ async function main() {
   // Convert quote amount to human-readable format
   const quoteAmountHumanReadable = quoteAmount.toString() / (10 ** quoteTokenDecimals);
 
-  console.log('quoteAmount', quoteAmountHumanReadable);
+  // Output in the desired format
+  console.log(`1 WETH = ${quoteAmountHumanReadable.toFixed(2)} USDC`);
 
   return quoteAmountHumanReadable;
 }
