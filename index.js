@@ -78,7 +78,15 @@ async function computeSpotPrice(poolAddress, token0Decimals, token1Decimals) {
     const sqrtRatioX96 = JSBI.BigInt(poolState.sqrtPriceX96);
     const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
     const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
-    
+
+    console.log('ratioX192:', ratioX192.toString());
+    console.log('shift:', shift.toString());
+
+    // Check for division by zero
+    if (JSBI.equal(shift, JSBI.BigInt(0))) {
+        throw new Error('Shift value is zero, division by zero error');
+    }
+
     const baseAmount = JSBI.BigInt(10 ** token1Decimals); // 1 unit of the quote token
     const quoteAmount = FullMath.mulDivRoundingUp(shift, baseAmount, ratioX192); // Adjust this line
 
