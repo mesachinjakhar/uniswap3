@@ -67,63 +67,57 @@ async function computeRealTimePrice(pool, token0Decimals, token1Decimals) {
         [baseToken, pool.fee, quoteToken]
     );
 
-    const amountOut = await quoter.methods.quoteExactInput(path, ONE_WETH).call();
-    const price = ethers.utils.formatUnits(amountOut, isWeth(pool.token0) ? token1Decimals : token0Decimals);
-
-    return price;
+    try {
+        const amountOut = await quoter.methods.quoteExactInput(path, ONE_WETH).call();
+        const price = ethers.utils.formatUnits(amountOut, isWeth(pool.token0) ? token1Decimals : token0Decimals);
+        return price;
+    } catch (error) {
+        console.error(`Error fetching real-time price for pool ${pool.pool}:`, error.message);
+        throw error;
+    }
 }
 
 async function updatePoolPrices(pool) {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
 
-    const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
-        config.WETH_ADDRESS_MAINNET,
-        otherToken,
-        pool.fee,
-        ONE_WETH,
-        0
-    ).call().catch(() => 0);
+    try {
+        const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
+            config.WETH_ADDRESS_MAINNET,
+            otherToken,
+            pool.fee,
+            ONE_WETH,
+            0
+        ).call();
 
-    if (ethToTokenPrice === '0') {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
+        const tokenToEthPrice = await quoter.methods.quoteExactOutputSingle(
+            otherToken,
+            config.WETH_ADDRESS_MAINNET,
+            pool.fee,
+            ONE_WETH,
+            0
+        ).call();
+
+        const token0 = state.tokens[pool.token0];
+        const token1 = state.tokens[pool.token1];
+
+        const realTimePrice = await computeRealTimePrice(pool, token0.decimals, token1.decimals);
+
+        if (!state.prices[otherToken]) {
+            state.prices[otherToken] = {
+                address: otherToken,
+                ...state.tokens[otherToken],
+                pools: {}
+            };
         }
-        return;
-    }
 
-    const tokenToEthPrice = await quoter.methods.quoteExactOutputSingle(
-        otherToken,
-        config.WETH_ADDRESS_MAINNET,
-        pool.fee,
-        ONE_WETH,
-        0
-    ).call().catch(() => 0);
-
-    if (tokenToEthPrice === '0') {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const token0 = state.tokens[pool.token0];
-    const token1 = state.tokens[pool.token1];
-
-    const realTimePrice = await computeRealTimePrice(pool, token0.decimals, token1.decimals);
-
-    if (!state.prices[otherToken]) {
-        state.prices[otherToken] = {
-            address: otherToken,
-            ...state.tokens[otherToken],
-            pools: {}
+        state.prices[otherToken].pools[pool.pool] = {
+            ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
+            tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
+            realTimePrice: realTimePrice.toString()
         };
+    } catch (error) {
+        console.error(`Error updating prices for pool ${pool.pool}:`, error.message);
     }
-
-    state.prices[otherToken].pools[pool.pool] = {
-        ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        realTimePrice: realTimePrice.toString()
-    };
 }
 
 const UNISWAPV3_SWAP_EVENT_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
