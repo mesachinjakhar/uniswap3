@@ -1,16 +1,14 @@
 const { ethers } = require('ethers');
 const JSBI = require('jsbi');
 const { TickMath, FullMath } = require('@uniswap/v3-sdk');
-const { Pool, nearestUsableTick } = require('@uniswap/v3-sdk');
-const { Fetcher, Route, Trade, Token, TokenAmount, TradeType } = require('@uniswap/sdk');
 
 // Local Erigon node provider setup
 const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
 
-// Example token addresses: WETH and USDT
-const baseToken = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // WETH
-const quoteToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // USDT
-const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'; // WETH/USDT pool address
+// Token addresses: WETH and USDC
+const baseToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH
+const quoteToken = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
+const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'; // WETH/USDC pool address
 
 async function getPoolState(poolAddress) {
   const poolAbi = [
@@ -38,7 +36,7 @@ async function main() {
   const sqrtRatioX96 = TickMath.getSqrtRatioAtTick(currentTick);
   const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
 
-  // Input amount of 1 ETH
+  // Input amount of 1 WETH
   const inputAmount = 1;
   const baseTokenDecimals = 18;
   const quoteTokenDecimals = 6;
