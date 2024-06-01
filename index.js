@@ -1,67 +1,418 @@
-const { ethers } = require('ethers');
-const JSBI = require('jsbi');
-const { TickMath, FullMath } = require('@uniswap/v3-sdk');
+const fs = require('fs');
+const config = require('./config.json');
+const mathjs = require('mathjs');
+const math = mathjs.create(mathjs.all);
+math.config({ number: 'BigNumber' });
 
-// Local Erigon node provider setup
-const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+const ethers = require('ethers');
+const Web3 = require('web3');
+const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
+const web3UrlInfura = `wss://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048`;
+const web3Infura = new Web3(new Web3.providers.WebsocketProvider(web3UrlInfura, {
+    clientConfig: {
+        maxReceivedFrameSize: 10000000000,
+        maxReceivedMessageSize: 10000000000,
+    }
+}));
+const provider = new Web3.providers.WebsocketProvider(web3Url, {
+    clientConfig: {
+        maxReceivedFrameSize: 10000000000,
+        maxReceivedMessageSize: 10000000000,
+    }
+});
+provider.pollingInterval = 50;
+const web3 = new Web3(provider);
 
-// Token addresses: WETH and USDC
-const baseToken = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH
-const quoteToken = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
-const poolAddress = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'; // WETH/USDC pool address
+const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
+const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
+const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
+const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
 
-async function getPoolState(poolAddress) {
-  const poolAbi = [
-    'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-    'function liquidity() view returns (uint128)'
-  ];
+const factory = new web3Infura.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
+const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
-  const poolContract = new ethers.Contract(poolAddress, poolAbi, provider);
+const ONE_WETH = ethers.utils.parseUnits('1', 18).toString();
 
-  const slot0 = await poolContract.slot0();
-  const liquidity = await poolContract.liquidity();
+function isWeth(address) {
+    return config.WETH_ADDRESS_MAINNET === address;
+}
 
-  return {
-    sqrtPriceX96: slot0.sqrtPriceX96,
-    tick: slot0.tick,
-    liquidity: liquidity
-  };
+async function getTokenInfo(address) {
+    const token = new web3.eth.Contract(IERC20MetadataAbi, address);
+    const symbol = await token.methods.symbol().call().catch(() => { return ''; });
+    const name = await token.methods.name().call().catch(() => { return ''; });
+    const decimals = await token.methods.decimals().call().catch(() => { return ''; });
+
+    return {
+        symbol,
+        name,
+        decimals
+    };
+}
+
+const state = {
+    tokens: {},
+    pools: {},
+    prices: {},
+    customAmountInWei: config.CUSTOM_AMOUNT
+};
+
+async function updatePoolPrices(pool) {
+    let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
+
+    const ethToTokenPrice = await quoter.methods.quoteExactInputSingle(
+        config.WETH_ADDRESS_MAINNET,
+        otherToken,
+        pool.fee,
+        ONE_WETH,
+        0
+    ).call().catch((err) => { return 0; });
+
+    if (math.bignumber(ethToTokenPrice).isZero()) {
+        if (state.prices[otherToken]) {
+            delete state.prices[otherToken].pools[pool.pool];
+        }
+        return;
+    }
+
+    const tokenToEthPrice = await quoter.methods.quoteExactOutputSingle(
+        otherToken,
+        config.WETH_ADDRESS_MAINNET,
+        pool.fee,
+        ONE_WETH,
+        0
+    ).call().catch((err) => { return 0; });
+
+    if (math.bignumber(tokenToEthPrice).isZero()) {
+        if (state.prices[otherToken]) {
+            delete state.prices[otherToken].pools[pool.pool];
+        }
+        return;
+    }
+
+    const ethToTokenPricePriceAdjust = await quoter.methods.quoteExactInputSingle(
+        config.WETH_ADDRESS_MAINNET,
+        otherToken,
+        pool.fee,
+        state.customAmountInWei,
+        0
+    ).call().catch((err) => { return 0; });
+
+    if (math.bignumber(ethToTokenPricePriceAdjust).isZero()) {
+        if (state.prices[otherToken]) {
+            delete state.prices[otherToken].pools[pool.pool];
+        }
+        return;
+    }
+
+    const tokenToEthPricePriceAdjust = await quoter.methods.quoteExactOutputSingle(
+        otherToken,
+        config.WETH_ADDRESS_MAINNET,
+        pool.fee,
+        state.customAmountInWei,
+        0
+    ).call().catch((err) => { return 0; });
+
+    if (math.bignumber(tokenToEthPricePriceAdjust).isZero()) {
+        if (state.prices[otherToken]) {
+            delete state.prices[otherToken].pools[pool.pool];
+        }
+        return;
+    }
+
+    if (!state.prices[otherToken]) {
+        state.prices[otherToken] = {
+            address: otherToken,
+            ...state.tokens[otherToken],
+            pools: {}
+        };
+    }
+
+    state.prices[otherToken].pools[pool.pool] = {
+        ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
+        tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
+        ethToTokenPricePriceAdjust: ethers.utils.formatUnits(ethToTokenPricePriceAdjust, state.tokens[otherToken].decimals).toString(),
+        tokenToEthPricePriceAdjust: ethers.utils.formatUnits(tokenToEthPricePriceAdjust, state.tokens[otherToken].decimals).toString()
+    };
+}
+
+const UNISWAPV3_SWAP_EVENT_TOPIC = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+const handledBlocks = {};
+
+async function fetchRecentPoolCreatedEvents() {
+    const BATCH_SIZE = 10000;
+    const currentBlock = await web3.eth.getBlockNumber();
+    const fromBlock = currentBlock - BATCH_SIZE;
+    const toBlock = 'latest';
+
+    try {
+        const events = await factory.getPastEvents('PoolCreated', {
+            fromBlock,
+            toBlock
+        });
+
+        for (let event of events) {
+            const isToken0Weth = isWeth(event.returnValues.token0);
+            const isToken1Weth = isWeth(event.returnValues.token1);
+
+            if (!isToken0Weth && !isToken1Weth) {
+                continue;
+            }
+
+            if (!state.tokens[event.returnValues.token0]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token0);
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    continue;
+                }
+                state.tokens[event.returnValues.token0] = tokenInfo;
+            }
+            if (!state.tokens[event.returnValues.token1]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token1);
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    continue;
+                }
+                state.tokens[event.returnValues.token1] = tokenInfo;
+            }
+
+            state.pools[event.returnValues.pool] = event.returnValues;
+            updatePoolPrices(state.pools[event.returnValues.pool]);
+        }
+    } catch (error) {
+        console.error('Error fetching PoolCreated events:', error);
+        process.exit(1);
+    }
+}
+
+async function processNewBlock(blockNumber) {
+    try {
+        await fetchRecentPoolCreatedEvents();
+        console.log('Processing new block:', blockNumber);
+    } catch (error) {
+        console.error('Error processing new block:', error);
+    }
 }
 
 async function main() {
-  const poolState = await getPoolState(poolAddress);
-  const currentTick = poolState.tick;
+    // Subscribe to new block headers
+    web3.eth.subscribe('newBlockHeaders')
+        .on('connected', function (id) {
+            console.info('blocks subscription connected', id)
+        })
+        .on('data', async function (block) {
+            console.info(`NEW_BLOCK ${block.number}`)
+            
+            // Process swaps in the new block
+            await processNewBlock(block.number)
+        })
+        .on('error', function (err) {
+            console.error('block subscription error', err)
+            process.exit(1)
+        })
 
-  // Get sqrtRatioX96 from the current tick
-  const sqrtRatioX96 = TickMath.getSqrtRatioAtTick(currentTick);
-  const ratioX192 = JSBI.multiply(sqrtRatioX96, sqrtRatioX96);
+    // Subscribe to swap events
+    web3.eth.subscribe('logs', { topics: [UNISWAPV3_SWAP_EVENT_TOPIC] })
+        .on('connected', function (id) {
+            console.info('logs subscription connected', id)
+        })
+        .on('data', async function (raw) {
+            if (handledBlocks[raw.blockNumber]) {
+                return
+            }
+            handledBlocks[raw.blockNumber] = true
 
-  // Input amount of 1 WETH
-  const inputAmount = 1;
-  const baseTokenDecimals = 18;
-  const quoteTokenDecimals = 6;
+            // Process swap events in the block
+            await readSyncEventsForBlock(raw.blockNumber)
+        })
+        .on('error', function (err) {
+            console.error('logs subscription error', err)
+            process.exit(1)
+        })
 
-  // Convert input amount to base token's smallest unit
-  const baseAmount = JSBI.BigInt(inputAmount * (10 ** baseTokenDecimals));
+    async function readSyncEventsForBlock(blockNumber) {
+        const logsRaw = await web3.eth.getPastLogs({ fromBlock: blockNumber, toBlock: blockNumber, topics: [UNISWAPV3_SWAP_EVENT_TOPIC] })
 
-  // Calculate the shift value
-  const shift = JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(192));
+        const syncs = {}
+        const cnt = logsRaw.length
+        for (let i = cnt - 1; i >= 0; i--) {
+            const data = logsRaw[i]
 
-  // Calculate the quote amount
-  const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
+            if (data.removed) {
+                continue
+            }
 
- // Convert quote amount to human-readable format
-const quoteAmountHumanReadable = parseFloat(quoteAmount.toString()) / (10 ** quoteTokenDecimals);
+            if (!syncs[data.address]) {
+                syncs[data.address] = true
+            }
+        }
 
-console.log('quoteAmount', quoteAmountHumanReadable.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+        const promisses = []
+        const pools = Object.keys(syncs)
+        for (let i = 0; i < pools.length; ++i) {
+            if (!state.pools[pools[i]]) {
+                continue
+            }
 
-return quoteAmountHumanReadable;
+            const promise = updatePoolPrices(state.pools[pools[i]])
 
+            promisses.push(promise)
+        }
 
-  // Output in the desired format
-  console.log(`1 WETH = ${quoteAmountHumanReadable.toFixed(2)} USDC`);
+        await Promise.all(promisses)
+    }
 
-  return quoteAmountHumanReadable;
+    factory.getPastEvents('PoolCreated', {
+        fromBlock: 'latest',
+        toBlock: await web3.eth.getBlockNumber()
+    }).then(async function (events) {
+        for (let i = 0, cnt = events.length; i < cnt; ++i) {
+            const event = events[i]
+
+            const isToken0Weth = isWeth(event.returnValues.token0)
+            const isToken1Weth = isWeth(event.returnValues.token1)
+
+            if (!isToken0Weth && !isToken1Weth) {
+                continue
+            }
+
+            if (!state.tokens[event.returnValues.token0]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token0)
+
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    continue
+                }
+
+                state.tokens[event.returnValues.token0] = tokenInfo
+            }
+            if (!state.tokens[event.returnValues.token1]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token1)
+
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    continue
+                }
+
+                state.tokens[event.returnValues.token1] = tokenInfo
+            }
+
+            state.pools[event.returnValues.pool] = event.returnValues
+
+            updatePoolPrices(state.pools[event.returnValues.pool])
+        }
+    })
+
+    factory.events.PoolCreated({
+        fromBlock: 'latest',
+    })
+        .on("connected", function (subscriptionId) {
+            console.log('pools subscription connected', subscriptionId);
+        })
+        .on('data', async function (event) {
+            const isToken0Weth = isWeth(event.returnValues.token0)
+            const isToken1Weth = isWeth(event.returnValues.token1)
+
+            if (!isToken0Weth && !isToken1Weth) {
+                return
+            }
+
+            if (!state.tokens[event.returnValues.token0]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token0)
+
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    return
+                }
+
+                state.tokens[event.returnValues.token0] = tokenInfo
+            }
+            if (!state.tokens[event.returnValues.token1]) {
+                const tokenInfo = await getTokenInfo(event.returnValues.token1)
+
+                if (!tokenInfo.name || !tokenInfo.symbol || !tokenInfo.decimals) {
+                    return
+                }
+
+                state.tokens[event.returnValues.token1] = tokenInfo
+            }
+
+            state.pools[event.returnValues.pool] = event.returnValues
+
+            updatePoolPrices(state.pools[event.returnValues.pool])
+
+            // const pool = new web3.eth.Contract(UniswapV3PoolAbi, event.returnValues.pool)
+
+            // pool.events.allEvents()
+            //     .on('data', function (event) {
+            //         updatePoolPrices(state.pools[event.address])
+            //     })
+            //     .on('error', function (error, receipt) {
+            //         console.log('price update subscription error', error, receipt)
+
+            //         process.exit(1)
+            //     })
+        })
+        .on('changed', function (event) {
+            console.log('changed', event)
+        })
+        .on('error', function (error, receipt) {
+            console.log('pool created subscription error', error, receipt)
+
+            process.exit(1)
+        })
 }
 
-main().catch(console.error);
+main()
+
+const express = require('express')
+const app = express();
+
+app.use(function (req, res, next) {
+    console.log(new Date(), req.connection.remoteAddress, req.method, req.url)
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
+
+app.get('/uniswap3', function (req, res) {
+    res.send(Object.keys(state.prices).map((key) => { return state.prices[key] }))
+});
+
+app.get('/setEthAmount', async function (req, res) {
+    if (!req.query || !req.query.amount) {
+        return res.status(400).send({
+            error: 'Parameter "amount" is required.'
+        })
+    }
+
+    try {
+        const inWei = ethers.utils.parseUnits(req.query.amount.toString(), 18).toString()
+        state.customAmountInWei = inWei
+        config.CUSTOM_AMOUNT = inWei
+
+        fs.writeFileSync('./config.json', JSON.stringify(config, null, 2), function (err) {
+            if (err) return console.log(err);
+        })
+
+        res.send({
+            amount: config.CUSTOM_AMOUNT
+        })
+
+        process.exit(1)
+    } catch (e) {
+        return res.status(400).send({
+            error: 'Invalid value for parameter "amount". A string in ETH units is required.',
+        })
+    }
+})
+
+const port = process.env.NODE_PORT || config.DEFAULT_API_PORT
+app.listen(port, () => console.log(`Listening on port ${port}`))
