@@ -50,8 +50,13 @@ async function main() {
   // Calculate the quote amount
   const quoteAmount = FullMath.mulDivRoundingUp(ratioX192, baseAmount, shift);
 
-  // Convert quote amount to human-readable format
-  const quoteAmountHumanReadable = quoteAmount.toString() / (10 ** quoteTokenDecimals);
+ // Convert quote amount to human-readable format
+const quoteAmountHumanReadable = parseFloat(quoteAmount.toString()) / (10 ** quoteTokenDecimals);
+
+console.log('quoteAmount', quoteAmountHumanReadable.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+
+return quoteAmountHumanReadable;
+
 
   // Output in the desired format
   console.log(`1 WETH = ${quoteAmountHumanReadable.toFixed(2)} USDC`);
