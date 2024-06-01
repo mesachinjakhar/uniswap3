@@ -93,7 +93,10 @@ async function computeSpotPrice(poolAddress, token0, token1) {
 
     const price0to1 = sqrtPriceX96ToPrice(poolState.sqrtPriceX96, token0.decimals, token1.decimals);
 
-    return ethers.utils.formatUnits(price0to1, token1.decimals);
+    // Normalize the price considering the decimals
+    const normalizedPrice = ethers.utils.formatUnits(price0to1, token1.decimals);
+    
+    return normalizedPrice;
 }
 
 async function updatePoolPrices(pool) {
