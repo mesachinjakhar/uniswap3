@@ -2,7 +2,7 @@ const fs = require('fs');
 const config = require('./config.json');
 const ethers = require('ethers');
 const { ChainId, Token, WETH, Fetcher, Route, Trade, TokenAmount, TradeType } = require('@uniswap/sdk');
-const { AlphaRouter } = require('@uniswap/smart-order-router');
+const { AlphaRouter } = require('@uniswap/v3-sdk');
 const Web3 = require('web3');
 
 // Local Erigon node URLs
