@@ -1,13 +1,10 @@
 const fs = require('fs');
 const config = require('./config.json');
-
-const mathjs = require('mathjs');
-const math = mathjs.create(mathjs.all);
-math.config({ number: 'BigNumber' });
-
 const ethers = require('ethers');
+const { ChainId, Token, WETH, Fetcher, Route } = require('@uniswap/sdk');
 const Web3 = require('web3');
-const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL;
+
+const web3Url = process.env.ETH_NODE_URL || config.DEFAULT_NODE_URL || 'ws://localhost:8546';
 const provider = new Web3.providers.WebsocketProvider(web3Url, {
     clientConfig: {
         maxReceivedFrameSize: 10000000000,
@@ -30,20 +27,12 @@ provider.on('end', function (e) {
     process.exit(1);
 });
 
-const web3UrlInfura = `wss://mainnet.infura.io/ws/v3/d8880e831dce46e5b9f3153e3dae3048`;
-const web3Infura = new Web3(new Web3.providers.WebsocketProvider(web3UrlInfura, {
-    clientConfig: {
-        maxReceivedFrameSize: 10000000000,
-        maxReceivedMessageSize: 10000000000,
-    }
-}));
-
 const IUniswapV3FactoryAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Factory.sol/UniswapV3Factory.json').abi;
 const IUniswapV3QuoterAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IQuoter.sol/IQuoter.json').abi;
 const UniswapV3PoolAbi = require('@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.sol/UniswapV3Pool.json').abi;
 const IERC20MetadataAbi = require('@uniswap/v3-periphery/artifacts/contracts/interfaces/IERC20Metadata.sol/IERC20Metadata.json').abi;
 
-const factory = new web3Infura.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
+const factory = new web3.eth.Contract(IUniswapV3FactoryAbi, config.UNISWAPV3_FACTORY_ADDRESS);
 const quoter = new web3.eth.Contract(IUniswapV3QuoterAbi, config.UNISWAPV3_QUOTER_ADDRESS);
 
 const ONE_WETH = ethers.utils.parseUnits('1', 18).toString();
@@ -68,6 +57,15 @@ const state = {
     customAmountInWei: config.CUSTOM_AMOUNT
 };
 
+async function getRealTimePrice(tokenAddress) {
+    const token = await Fetcher.fetchTokenData(ChainId.MAINNET, tokenAddress);
+    const weth = WETH[ChainId.MAINNET];
+    const pair = await Fetcher.fetchPairData(token, weth);
+    const route = new Route([pair], weth);
+
+    return route.midPrice.toSignificant(6);
+}
+
 async function updatePoolPrices(pool) {
     let otherToken = isWeth(pool.token0) ? pool.token1 : pool.token0;
 
@@ -79,7 +77,7 @@ async function updatePoolPrices(pool) {
         0
     ).call().catch(() => 0);
 
-    if (math.bignumber(ethToTokenPrice).isZero()) {
+    if (ethToTokenPrice === '0') {
         if (state.prices[otherToken]) {
             delete state.prices[otherToken].pools[pool.pool];
         }
@@ -94,42 +92,14 @@ async function updatePoolPrices(pool) {
         0
     ).call().catch(() => 0);
 
-    if (math.bignumber(tokenToEthPrice).isZero()) {
+    if (tokenToEthPrice === '0') {
         if (state.prices[otherToken]) {
             delete state.prices[otherToken].pools[pool.pool];
         }
         return;
     }
 
-    const ethToTokenPricePriceAdjust = await quoter.methods.quoteExactInputSingle(
-        config.WETH_ADDRESS_MAINNET,
-        otherToken,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(ethToTokenPricePriceAdjust).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
-
-    const tokenToEthPricePriceAdjust = await quoter.methods.quoteExactOutputSingle(
-        otherToken,
-        config.WETH_ADDRESS_MAINNET,
-        pool.fee,
-        state.customAmountInWei,
-        0
-    ).call().catch(() => 0);
-
-    if (math.bignumber(tokenToEthPricePriceAdjust).isZero()) {
-        if (state.prices[otherToken]) {
-            delete state.prices[otherToken].pools[pool.pool];
-        }
-        return;
-    }
+    const realTimePrice = await getRealTimePrice(otherToken);
 
     if (!state.prices[otherToken]) {
         state.prices[otherToken] = {
@@ -142,8 +112,7 @@ async function updatePoolPrices(pool) {
     state.prices[otherToken].pools[pool.pool] = {
         ethToTokenPrice: ethers.utils.formatUnits(ethToTokenPrice, state.tokens[otherToken].decimals).toString(),
         tokenToEthPrice: ethers.utils.formatUnits(tokenToEthPrice, state.tokens[otherToken].decimals).toString(),
-        ethToTokenPricePriceAdjust: ethers.utils.formatUnits(ethToTokenPricePriceAdjust, state.tokens[otherToken].decimals).toString(),
-        tokenToEthPricePriceAdjust: ethers.utils.formatUnits(tokenToEthPricePriceAdjust, state.tokens[otherToken].decimals).toString()
+        realTimePrice
     };
 }
 
